@@ -10,7 +10,7 @@ cargo run --features dev -- \
   --scss $BLOG_DATA_DIR/scss \
   --js $BLOG_DATA_DIR/scripts \
   --html $BLOG_DATA_DIR/templates \
-  --out $BLOG_DATA_DIR/assets \
+  --out ./target/assets \
   --add $BLOG_DATA_DIR/images \
   --posts $BLOG_DATA_DIR/posts \
   --series $BLOG_DATA_DIR/series.toml
