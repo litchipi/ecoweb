@@ -251,6 +251,6 @@ pub fn setup_scripts(config: &Arc<Configuration>) -> Result<(), Errcode> {
 pub fn timestamp_to_date(val: &Value, _: &HashMap<String, Value>) -> Result<Value, tera::Error> {
     let s = try_get_value!("timestamp_to_date", "value", i64, val);
     let date = chrono::NaiveDateTime::from_timestamp_opt(s, 0).unwrap();
-    let val = tera::to_value(date.format("%d/%m/%Y at %H:%M:%S").to_string())?;
+    let val = tera::to_value(date.format("%d/%m/%Y").to_string())?;
     Ok(val)
 }
