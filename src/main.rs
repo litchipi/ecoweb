@@ -109,7 +109,7 @@ async fn main() -> std::io::Result<()> {
                     .add((header::CACHE_CONTROL, format!("max-age={MAX_AGE}")))
                     .add((header::AGE, "0")),
             )
-            .wrap(protection::ProtectionMiddlewareBuilder::new(&config))
+            // .wrap(protection::ProtectionMiddlewareBuilder::new(&config))
             .app_data(render.clone())
             .app_data(loader.clone())
             .configure(|srv| endpoints::configure(srv).expect("Unable to configure endpoints"))
