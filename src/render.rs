@@ -129,13 +129,13 @@ impl Render {
         )
         .as_str();
         xml += format!(
-            "<managingEditor>{}</managingEditor>",
-            self.site_context.author_email
+            "<managingEditor>{} ({})</managingEditor>",
+            self.site_context.author_email, self.site_context.author_name,
         )
         .as_str();
         xml += format!(
-            "<webMaster name=\"{}\">{}</webMaster>",
-            self.site_context.author_name, self.site_context.author_email
+            "<webMaster>{} ({})</webMaster>",
+            self.site_context.author_email, self.site_context.author_name
         )
         .as_str();
         xml += format!("<copyright>{}</copyright>", self.site_context.copyrights).as_str();

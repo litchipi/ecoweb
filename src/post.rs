@@ -159,8 +159,8 @@ impl PostMetadata {
         .as_str();
 
         *xml += format!(
-            "<author name=\"{}\">{}</author>",
-            ctxt.author_name, ctxt.author_email
+            "<author>{} ({})</author>",
+            ctxt.author_email, ctxt.author_name
         )
         .as_str();
         *xml += format!("<guid isPermaLink=\"false\">{}</guid>", self.id).as_str();
