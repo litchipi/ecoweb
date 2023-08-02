@@ -153,12 +153,16 @@ impl PostMetadata {
         *xml += "<item>";
         *xml += format!("<title>{}</title>", self.title).as_str();
         *xml += format!(
-            "<link href=\"{}/post/{}\" rel=\"alternate\" type=\"text/html\" title=\"{}\"/>",
-            ctxt.base_url, self.id, self.title
+            "<link type=\"text/html\" title=\"{}\">{}/post/{}</link>",
+            self.title, ctxt.base_url, self.id,
         )
         .as_str();
 
-        *xml += format!("<author>{}</author>", ctxt.author_email).as_str();
+        *xml += format!(
+            "<author name=\"{}\">{}</author>",
+            ctxt.author_name, ctxt.author_email
+        )
+        .as_str();
         *xml += format!("<guid isPermaLink=\"false\">{}</guid>", self.id).as_str();
 
         let date: DateTime<Utc> = DateTime::from_utc(
@@ -174,10 +178,10 @@ impl PostMetadata {
         }
 
         if let Some(ref c) = self.category {
-            *xml += format!("<category term=\"{}\"/>", c).as_str();
+            *xml += format!("<category>{}</category>", c).as_str();
         }
         for tag in self.tags.iter() {
-            *xml += format!("<category term=\"{}\"/>", tag).as_str();
+            *xml += format!("<category>{}</category>", tag).as_str();
         }
         *xml += "</item>";
     }

@@ -133,7 +133,11 @@ impl Render {
             self.site_context.author_email
         )
         .as_str();
-        xml += format!("<webMaster>{}</webMaster>", self.site_context.author_email).as_str();
+        xml += format!(
+            "<webMaster name=\"{}\">{}</webMaster>",
+            self.site_context.author_name, self.site_context.author_email
+        )
+        .as_str();
         xml += format!("<copyright>{}</copyright>", self.site_context.copyrights).as_str();
         for post in recent {
             post.to_rss_item(&self.site_context, &mut xml);
