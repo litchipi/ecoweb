@@ -121,24 +121,7 @@ impl Render {
 
     pub fn render_rss_feed(&self, recent: Vec<PostMetadata>) -> Result<RenderedPage, Errcode> {
         let mut xml = "<rss version=\"2.0\"><channel>".to_string();
-        xml += format!("<title>{}</title>", self.site_context.name).as_str();
-        xml += format!("<link>{}</link>", self.site_context.base_url).as_str();
-        xml += format!(
-            "<description>{}</description>",
-            self.site_context.description
-        )
-        .as_str();
-        xml += format!(
-            "<managingEditor>{} ({})</managingEditor>",
-            self.site_context.author_email, self.site_context.author_name,
-        )
-        .as_str();
-        xml += format!(
-            "<webMaster>{} ({})</webMaster>",
-            self.site_context.author_email, self.site_context.author_name
-        )
-        .as_str();
-        xml += format!("<copyright>{}</copyright>", self.site_context.copyrights).as_str();
+        self.site_context.to_rss_feed(&mut xml);
         for post in recent {
             post.to_rss_item(&self.site_context, &mut xml);
         }
@@ -150,12 +133,11 @@ impl Render {
         #[allow(unused_mut)]
         let mut rendered = self.engine.render(template, ctxt)?;
 
-        std::fs::write("/tmp/page.html", &rendered)?;
         #[cfg(feature = "html_minify")]
         let rendered = {
             let cfg = minify_html_onepass::Cfg {
-                minify_js: false,
-                minify_css: false,
+                minify_js: true,
+                minify_css: true,
             };
             match minify_html_onepass::in_place_str(&mut rendered, &cfg) {
                 Ok(minified) => minified.to_string(),

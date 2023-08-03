@@ -32,4 +32,21 @@ impl SiteContext {
         let ctxt: SiteContext = toml::from_str(&strdata)?;
         Ok(ctxt)
     }
+
+    pub fn to_rss_feed(&self, xml: &mut String) {
+        *xml += format!("<title>{}</title>", self.name).as_str();
+        *xml += format!("<link>{}</link>", self.base_url).as_str();
+        *xml += format!("<description>{}</description>", self.description).as_str();
+        *xml += format!(
+            "<managingEditor>{} ({})</managingEditor>",
+            self.author_email, self.author_name,
+        )
+        .as_str();
+        *xml += format!(
+            "<webMaster>{} ({})</webMaster>",
+            self.author_email, self.author_name
+        )
+        .as_str();
+        *xml += format!("<copyright>{}</copyright>", self.copyrights).as_str();
+    }
 }
