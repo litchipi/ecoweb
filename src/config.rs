@@ -9,33 +9,36 @@ type StorageConfig = crate::loader::storage::local_storage::LocalStorageConfig;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Configuration {
-    #[serde(skip)]
-    pub scss_dir: PathBuf,
-    #[serde(skip)]
-    pub scripts_dir: PathBuf,
-    #[serde(skip)]
-    pub templates_dir: PathBuf,
-    #[serde(skip)]
-    pub site_config_file: PathBuf,
-    #[serde(skip)]
-    pub favicon: PathBuf,
-    #[serde(skip)]
-    pub add_assets: Vec<PathBuf>,
-    #[serde(skip)]
-    pub storage_cfg: StorageConfig,
-    #[serde(skip)]
-    pub assets_dir: PathBuf,
-
     pub server_port: u16,
     pub cache: CacheConfig,
     pub req_limit_per_sec: usize,
     pub code_theme: String,
     pub limits: LoadingLimits,
+    pub browser_cache_max_age: usize,
 
+    // Key value configurations, will be validated for content on load
     #[serde(default)]
     pub templates: HashMap<String, String>,
     #[serde(default)]
     pub scss: HashMap<String, Vec<String>>,
+
+    // Parts of the configuration set by CLI args, so can be omitted in config
+    #[serde(default)]
+    pub scss_dir: PathBuf,
+    #[serde(default)]
+    pub scripts_dir: PathBuf,
+    #[serde(default)]
+    pub templates_dir: PathBuf,
+    #[serde(default)]
+    pub site_config_file: PathBuf,
+    #[serde(default)]
+    pub favicon: PathBuf,
+    #[serde(default)]
+    pub add_assets: Vec<PathBuf>,
+    #[serde(default)]
+    pub storage_cfg: StorageConfig,
+    #[serde(default)]
+    pub assets_dir: PathBuf,
 }
 
 impl From<Args> for Configuration {
