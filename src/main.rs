@@ -86,7 +86,7 @@ async fn main() -> std::io::Result<()> {
     let render = Data::new(
         render::Render::init(config.clone()).expect("Error while initialization of Render"),
     );
-    std::fs::copy(&config.favicon, config.assets_dir.join("favicon"))?;
+    std::fs::copy(&config.favicon, config.assets_dir.join("favicon.ico"))?;
     fs_extra::copy_items(
         &config.add_assets,
         &config.assets_dir,
