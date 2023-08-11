@@ -115,7 +115,7 @@ async fn main() -> std::io::Result<()> {
             .configure(|srv| endpoints::configure(srv).expect("Unable to configure endpoints"))
             .service(Files::new("/", config.assets_dir.canonicalize().unwrap()))
     })
-    .bind(("127.0.0.1", port))?
+    .bind(("0.0.0.0", port))?
     .run();
 
     log::info!("Started on http://127.0.0.1:{port}");
