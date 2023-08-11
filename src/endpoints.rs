@@ -1,7 +1,8 @@
 use actix_web::http::header;
 use actix_web::web::{self, Data};
-use actix_web::{get, HttpResponse, Responder};
+use actix_web::{get, HttpResponse};
 
+use crate::errors::raise_error;
 use crate::loader::PostFilter;
 use crate::render::Render;
 use crate::{errors::Errcode, loader::Loader};
@@ -14,28 +15,26 @@ fn response(page: String) -> HttpResponse {
 // TODO    Print CSS
 
 #[get("/")]
-async fn index(ldr: Data<Loader>, rdr: Data<Render>) -> Result<impl Responder, Errcode> {
-    let recent_posts = ldr.posts.get_recent(PostFilter::NoFilter, true, Some(5))?;
-    let all_categories = ldr.get_all_categories()?;
-    let all_series = ldr.get_all_series()?;
-    let rendered = rdr.render_index(recent_posts, all_categories, all_series)?;
-    Ok(response(rendered))
+async fn index(ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
+    match _index(&ldr, &rdr).await {
+        Ok(r) => r,
+        Err(e) => raise_error(e, &rdr),
+    }
 }
 
 #[get("/rss")]
-async fn get_rss_feed(ldr: Data<Loader>, rdr: Data<Render>) -> Result<impl Responder, Errcode> {
-    let all_posts = ldr.posts.get_recent(PostFilter::NoFilter, true, None)?;
-    let rendered = rdr.render_rss_feed(all_posts)?;
-    Ok(HttpResponse::Ok()
-        .append_header(header::ContentType(mime::TEXT_XML))
-        .body(rendered))
+async fn get_rss_feed(ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
+    match _get_rss_feed(&ldr, &rdr).await {
+        Ok(r) => r,
+        Err(e) => raise_error(e, &rdr),
+    }
 }
-
 #[get("/allposts")]
-async fn get_all_posts(ldr: Data<Loader>, rdr: Data<Render>) -> Result<impl Responder, Errcode> {
-    let all_posts = ldr.posts.get_recent(PostFilter::NoFilter, true, None)?;
-    let rendered = rdr.render_list_allposts(all_posts)?;
-    Ok(response(rendered))
+async fn get_all_posts(ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
+    match _get_all_posts(&ldr, &rdr).await {
+        Ok(r) => r,
+        Err(e) => raise_error(e, &rdr),
+    }
 }
 
 #[get("/category/{name}")]
@@ -43,9 +42,44 @@ async fn get_category(
     args: web::Path<String>,
     ldr: Data<Loader>,
     rdr: Data<Render>,
-) -> Result<impl Responder, Errcode> {
-    let name = args.into_inner();
+) -> HttpResponse {
+    match _get_category(args.into_inner(), &ldr, &rdr).await {
+        Ok(r) => r,
+        Err(e) => raise_error(e, &rdr),
+    }
+}
 
+#[get("/serie/{slug}")]
+async fn get_serie(slug: web::Path<String>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
+    match _get_serie(slug.into_inner(), &ldr, &rdr).await {
+        Ok(r) => r,
+        Err(e) => raise_error(e, &rdr),
+    }
+}
+
+async fn _index(ldr: &Loader, rdr: &Render) -> Result<HttpResponse, Errcode> {
+    let recent_posts = ldr.posts.get_recent(PostFilter::NoFilter, true, Some(5))?;
+    let all_categories = ldr.get_all_categories()?;
+    let all_series = ldr.get_all_series()?;
+    let rendered = rdr.render_index(recent_posts, all_categories, all_series)?;
+    Ok(response(rendered))
+}
+
+async fn _get_rss_feed(ldr: &Loader, rdr: &Render) -> Result<HttpResponse, Errcode> {
+    let all_posts = ldr.posts.get_recent(PostFilter::NoFilter, true, None)?;
+    let rendered = rdr.render_rss_feed(all_posts)?;
+    Ok(HttpResponse::Ok()
+        .append_header(header::ContentType(mime::TEXT_XML))
+        .body(rendered))
+}
+
+async fn _get_all_posts(ldr: &Loader, rdr: &Render) -> Result<HttpResponse, Errcode> {
+    let all_posts = ldr.posts.get_recent(PostFilter::NoFilter, true, None)?;
+    let rendered = rdr.render_list_allposts(all_posts)?;
+    Ok(response(rendered))
+}
+
+async fn _get_category(name: String, ldr: &Loader, rdr: &Render) -> Result<HttpResponse, Errcode> {
     let all_posts = ldr.posts.list_posts_category(name, vec![])?;
 
     let rendered = if let Some(fpost) = all_posts.get(0) {
@@ -63,13 +97,7 @@ async fn get_category(
     Ok(response(rendered))
 }
 
-#[get("/serie/{slug}")]
-async fn get_serie(
-    slug: web::Path<String>,
-    ldr: Data<Loader>,
-    rdr: Data<Render>,
-) -> Result<impl Responder, Errcode> {
-    let slug = slug.into_inner();
+async fn _get_serie(slug: String, ldr: &Loader, rdr: &Render) -> Result<HttpResponse, Errcode> {
     let all_posts = ldr.posts.list_posts_serie(slug.clone(), vec![])?;
     if let Some(serie_md) = ldr.get_serie_md(slug.clone())? {
         if all_posts.is_empty() {
@@ -86,13 +114,7 @@ async fn get_serie(
     }
 }
 
-#[get("/tag/{tag}")]
-async fn get_by_tag(
-    args: web::Path<String>,
-    ldr: Data<Loader>,
-    rdr: Data<Render>,
-) -> Result<HttpResponse, Errcode> {
-    let tag = args.into_inner();
+async fn _get_by_tag(tag: String, ldr: &Loader, rdr: &Render) -> Result<HttpResponse, Errcode> {
     let all_posts = ldr
         .posts
         .get_recent(PostFilter::ContainsTag(tag.clone()), true, None)?;
@@ -105,13 +127,8 @@ async fn get_by_tag(
     Ok(response(rendered))
 }
 
-#[get("/post/{id}")]
-async fn get_post(
-    id: web::Path<u64>,
-    ldr: Data<Loader>,
-    rdr: Data<Render>,
-) -> Result<HttpResponse, Errcode> {
-    let id = id.into_inner();
+// TODO    Add read time estimation inside render context (based on post content number of words)
+async fn _get_post(id: u64, ldr: &Loader, rdr: &Render) -> Result<HttpResponse, Errcode> {
     let Some((post, nav)) = ldr.posts.get(id)? else {
         return Err(Errcode::NotFound("post_id", id.to_string()));
     };
@@ -172,6 +189,25 @@ async fn get_post(
     Ok(response(rendered))
 }
 
+#[get("/tag/{tag}")]
+async fn get_by_tag(args: web::Path<String>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
+    match _get_by_tag(args.into_inner(), &ldr, &rdr).await {
+        Ok(r) => r,
+        Err(e) => raise_error(e, &rdr),
+    }
+}
+
+#[get("/post/{id}")]
+async fn get_post(id: web::Path<u64>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
+    match _get_post(id.into_inner(), &ldr, &rdr).await {
+        Ok(r) => r,
+        Err(e) => raise_error(e, &rdr),
+    }
+}
+async fn not_found(rdr: Data<Render>) -> HttpResponse {
+    HttpResponse::NotFound().body(rdr.render_not_found())
+}
+
 pub fn configure(srv: &mut web::ServiceConfig) -> Result<(), Errcode> {
     srv.service(index)
         .service(get_post)
@@ -179,6 +215,7 @@ pub fn configure(srv: &mut web::ServiceConfig) -> Result<(), Errcode> {
         .service(get_serie)
         .service(get_category)
         .service(get_rss_feed)
-        .service(get_by_tag);
+        .service(get_by_tag)
+        .default_service(web::route().to(not_found));
     Ok(())
 }

@@ -22,6 +22,15 @@ pub enum LocalStorageError {
     SerieNotFound(String),
 }
 
+impl LocalStorageError {
+    pub fn get_err_str(&self) -> String {
+        match self {
+            LocalStorageError::MetadataParsing(e) => format!("Unable to parse metadata: {e:?}"),
+            e => format!("{e:?}"),
+        }
+    }
+}
+
 impl From<std::io::Error> for LocalStorageError {
     fn from(value: std::io::Error) -> Self {
         LocalStorageError::IoError(value)

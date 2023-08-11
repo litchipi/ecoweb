@@ -1,5 +1,9 @@
 use std::path::PathBuf;
 
+use actix_web::HttpResponse;
+
+use crate::render::Render;
+
 #[derive(Debug)]
 pub enum Errcode {
     PathDoesntExist(&'static str, PathBuf),
@@ -37,10 +41,36 @@ impl std::fmt::Display for Errcode {
     }
 }
 
-impl From<Errcode> for actix_web::error::Error {
-    fn from(val: Errcode) -> Self {
-        actix_web::error::ErrorInternalServerError(val)
-    }
+pub fn raise_error(err: Errcode, render: &Render) -> HttpResponse {
+    // TODO    Handle more error cases
+    let errstr = match &err {
+        Errcode::NotFound(content_type, content_id) => {
+            format!("Unable to find {content_type} of ID {content_id}")
+        }
+        // Errcode::PathDoesntExist(_, _) => todo!(),
+        // Errcode::Template(_) => todo!(),
+        // Errcode::TemplateTypeNotBound(_) => todo!(),
+        // Errcode::IoError(_) => todo!(),
+        // Errcode::Scss(_) => todo!(),
+        // Errcode::StringDecode(_) => todo!(),
+        // Errcode::JsonSerialization(_) => todo!(),
+        // Errcode::TomlDecode(_) => todo!(),
+        // Errcode::Syntect(_) => todo!(),
+        // Errcode::MetadataValidationFailed(_, _) => todo!(),
+        // Errcode::CopyItemsRecursive(_) => todo!(),
+        Errcode::StorageError(err) => err.get_err_str(),
+        // Errcode::CssMinifyingError(_) => todo!(),
+        // Errcode::CssPrintingError(_) => todo!(),
+        // Errcode::CssParsingError(_) => todo!(),
+        #[cfg(feature = "html_minify")]
+        Errcode::BadHtmlCode(e) => format!("Bad HTML code: {e:?}"),
+        e => format!("{e:?}"),
+    };
+    // TODO    Handle more error cases
+    let mut builder = match err {
+        _ => HttpResponse::InternalServerError(),
+    };
+    builder.body(render.render_error(errstr))
 }
 
 impl From<tera::Error> for Errcode {

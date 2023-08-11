@@ -53,6 +53,7 @@ pub struct Render {
     post_template: String,
     post_list_template: String,
     index_template: String,
+    error_template: String,
 }
 
 impl Render {
@@ -90,7 +91,16 @@ impl Render {
                 .get("index")
                 .cloned()
                 .ok_or(Errcode::TemplateTypeNotBound("index"))?,
+            error_template: config
+                .templates
+                .get("error")
+                .cloned()
+                .ok_or(Errcode::TemplateTypeNotBound("error"))?,
         })
+    }
+
+    pub fn render_not_found(&self) -> RenderedPage {
+        self.render_error("404 not found")
     }
 
     pub fn render_empty_post_list(&self, ptype: &'static str) -> RenderedPage {
@@ -146,6 +156,20 @@ impl Render {
         }
         xml += "</channel></rss>";
         Ok(xml)
+    }
+
+    pub fn render_error<T: ToString>(&self, content: T) -> RenderedPage {
+        let mut ctxt = self.base_context.clone();
+        ctxt.insert("error", &content.to_string());
+        match self.engine.render(&self.error_template, &ctxt) {
+            Ok(r) => r,
+            Err(e) => {
+                let mut errstr = format!("Error occured: {}<br/>", content.to_string());
+                errstr += format!("Unable to display error page: {e:?}<br/>").as_str();
+                errstr += "<a href=\"/\">Return to Index</a>";
+                format!("<html>{errstr}</html>")
+            }
+        }
     }
 
     pub fn render(&self, template: &str, ctxt: &Context) -> Result<RenderedPage, Errcode> {
