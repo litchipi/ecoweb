@@ -11,7 +11,6 @@ pub enum Errcode {
     JsonSerialization(serde_json::Error),
     TomlDecode(toml::de::Error),
     Syntect(syntect::Error),
-    ArgumentMissing(&'static str, &'static str),
     NotFound(&'static str, String),
     MetadataValidationFailed(&'static str, &'static str),
 
@@ -26,7 +25,7 @@ pub enum Errcode {
     #[cfg(feature = "css_minify")]
     CssParsingError(String),
     #[cfg(feature = "html_minify")]
-    WrongHtmlCode(minify_html_onepass::Error),
+    BadHtmlCode(minify_html_onepass::Error),
 }
 
 impl std::fmt::Display for Errcode {
@@ -95,7 +94,7 @@ impl From<syntect::Error> for Errcode {
 #[cfg(feature = "html_minify")]
 impl From<minify_html_onepass::Error> for Errcode {
     fn from(value: minify_html_onepass::Error) -> Self {
-        Errcode::WrongHtmlCode(value)
+        Errcode::BadHtmlCode(value)
     }
 }
 
