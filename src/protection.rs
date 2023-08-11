@@ -1,3 +1,9 @@
+#![allow(dead_code)]
+
+// TODO    Fixup protection middleware
+//    Get the hostname from other sources (forward, req headers, etc...)
+//    Never blame localhost for spam
+
 use actix_web::error::ErrorForbidden;
 use parking_lot::RwLock;
 use std::collections::BTreeMap;
