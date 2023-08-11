@@ -49,6 +49,10 @@ pub struct Render {
     engine: TemplateEngine,
     pub base_context: Context,
     site_context: SiteContext,
+
+    post_template: String,
+    post_list_template: String,
+    index_template: String,
 }
 
 impl Render {
@@ -71,6 +75,21 @@ impl Render {
             site_context,
             base_context,
             engine: tera,
+            post_template: config
+                .templates
+                .get("post")
+                .cloned()
+                .ok_or(Errcode::TemplateTypeNotBound("post"))?,
+            post_list_template: config
+                .templates
+                .get("post_list")
+                .cloned()
+                .ok_or(Errcode::TemplateTypeNotBound("post_list"))?,
+            index_template: config
+                .templates
+                .get("index")
+                .cloned()
+                .ok_or(Errcode::TemplateTypeNotBound("index"))?,
         })
     }
 
@@ -79,7 +98,7 @@ impl Render {
     }
 
     pub fn render_post_list(&self, ctxt: Context) -> Result<RenderedPage, Errcode> {
-        self.render("post_list.html", &ctxt)
+        self.render(&self.post_list_template, &ctxt)
     }
 
     pub fn render_list_allposts(
@@ -92,7 +111,7 @@ impl Render {
         let mut ctxt = self.base_context.clone();
         ctxt.insert("by", "all posts");
         ctxt.insert("all_posts", &all_posts);
-        self.render("post_list.html", &ctxt)
+        self.render(&self.post_list_template, &ctxt)
     }
 
     pub fn render_post(
@@ -103,7 +122,7 @@ impl Render {
     ) -> Result<RenderedPage, Errcode> {
         ctxt.insert("post_content", &post.content);
         ctxt.insert("nav", &nav);
-        self.render("post.html", &ctxt)
+        self.render(&self.post_template, &ctxt)
     }
 
     pub fn render_index(
@@ -116,7 +135,7 @@ impl Render {
         ctxt.insert("recent_posts", &recent);
         ctxt.insert("all_categories", &categories);
         ctxt.insert("all_series", &series);
-        self.render("index.html", &ctxt)
+        self.render(&self.index_template, &ctxt)
     }
 
     pub fn render_rss_feed(&self, recent: Vec<PostMetadata>) -> Result<RenderedPage, Errcode> {
@@ -129,7 +148,7 @@ impl Render {
         Ok(xml)
     }
 
-    pub fn render(&self, template: &'static str, ctxt: &Context) -> Result<RenderedPage, Errcode> {
+    pub fn render(&self, template: &str, ctxt: &Context) -> Result<RenderedPage, Errcode> {
         #[allow(unused_mut)]
         let mut rendered = self.engine.render(template, ctxt)?;
 
@@ -152,25 +171,6 @@ impl Render {
     }
 }
 
-macro_rules! render_scss {
-    ($config:expr, $($fpath:literal),* $(,)? => $outpath:literal) => {
-        let grass_opts = $config.get_grass_options();
-        let mut out_css = String::new();
-        $(
-            let fpath = $config.scss_dir.join($fpath);
-            if !fpath.exists() {
-                return Err(Errcode::PathDoesntExist("scss-file", fpath));
-            }
-            out_css += grass::from_path(fpath, &grass_opts)?.as_str();
-        )*
-
-        #[cfg(feature = "css_minify")]
-        let out_css = minify_css($outpath.to_string(), &out_css)?;
-
-        std::fs::write($config.assets_dir.join($outpath), out_css)?;
-    };
-}
-
 #[cfg(feature = "css_minify")]
 pub fn minify_css(name: String, css: &String) -> Result<RenderedPage, Errcode> {
     use lightningcss::stylesheet::{MinifyOptions, ParserOptions, PrinterOptions, StyleSheet};
@@ -186,14 +186,23 @@ pub fn minify_css(name: String, css: &String) -> Result<RenderedPage, Errcode> {
 }
 
 pub fn setup_css(config: &Arc<Configuration>) -> Result<(), Errcode> {
-    render_scss!(config,
-        "base.scss",
-        "banner.scss",
-        "nav.scss",
-        "post.scss",
-        "specific.scss",
-         => "style.css"
-    );
+    let grass_opts = config.get_grass_options();
+
+    for (outpath, scss_list) in config.scss.iter() {
+        let mut out_css = String::new();
+        for scss_path in scss_list.iter() {
+            let fpath = config.scss_dir.join(scss_path);
+            if !fpath.exists() {
+                return Err(Errcode::PathDoesntExist("scss-file", fpath));
+            }
+            out_css += grass::from_path(fpath, &grass_opts)?.as_str();
+        }
+
+        #[cfg(feature = "css_minify")]
+        let out_css = minify_css(outpath.to_string(), &out_css)?;
+
+        std::fs::write(config.assets_dir.join(outpath), out_css)?;
+    }
 
     // Code.css
     let theme_set = ThemeSet::load_defaults();

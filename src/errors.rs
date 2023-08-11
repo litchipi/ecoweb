@@ -4,6 +4,7 @@ use std::path::PathBuf;
 pub enum Errcode {
     PathDoesntExist(&'static str, PathBuf),
     Template(tera::Error),
+    TemplateTypeNotBound(&'static str),
     IoError(std::io::Error),
     Scss(grass::Error),
     StringDecode(std::string::FromUtf8Error),

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -31,6 +31,11 @@ pub struct Configuration {
     pub req_limit_per_sec: usize,
     pub code_theme: String,
     pub limits: LoadingLimits,
+
+    #[serde(default)]
+    pub templates: HashMap<String, String>,
+    #[serde(default)]
+    pub scss: HashMap<String, Vec<String>>,
 }
 
 impl From<Args> for Configuration {
