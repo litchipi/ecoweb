@@ -1,5 +1,5 @@
 use parking_lot::RwLock;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -198,7 +198,7 @@ impl StorageTrait for LocalStorage {
 
     fn query_category(&self, query: StorageQuery) -> Result<Vec<String>, Self::Error> {
         self.update_registry_if_needed();
-        let mut all_categories: Vec<String> = self
+        let all_categories: HashSet<String> = self
             .registry
             .read()
             .posts
@@ -206,6 +206,7 @@ impl StorageTrait for LocalStorage {
             .filter_map(|(_, md)| md.category.clone())
             .collect();
 
+        let mut all_categories = all_categories.into_iter().collect::<Vec<String>>();
         all_categories.sort_by(|a, b| {
             let ord = a.cmp(b);
             if query.reverse_order {
