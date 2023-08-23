@@ -12,5 +12,5 @@ cargo run --features dev -- \
   --html $BLOG_DATA_DIR/templates \
   --out ./target/assets \
   --add $BLOG_DATA_DIR/images \
-  --posts $BLOG_DATA_DIR/posts \
-  --series $BLOG_DATA_DIR/series.toml
+  --postsdir $BLOG_DATA_DIR/posts \
+  --posts $BLOG_DATA_DIR/registry.toml

@@ -1,6 +1,9 @@
-use std::collections::{BTreeMap, HashMap};
+use parking_lot::RwLock;
+use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use thiserror::Error;
 
 use serde::{Deserialize, Serialize};
 
@@ -12,60 +15,26 @@ use crate::Args;
 
 use super::{StorageQuery, StorageTrait};
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum LocalStorageError {
-    GlobError(glob::GlobError),
-    GlobPattern(glob::PatternError),
-    MetadataParsing(Box<Errcode>),
-    IoError(std::io::Error),
-    SerieLoadFailed(toml::de::Error),
-    SerieNotFound(String),
-}
+    #[error("Failed to decode posts registry")]
+    RegistryLoadError(#[from] toml::de::Error),
 
-impl LocalStorageError {
-    pub fn get_err_str(&self) -> String {
-        match self {
-            LocalStorageError::MetadataParsing(e) => format!("Unable to parse metadata: {e:?}"),
-            e => format!("{e:?}"),
-        }
-    }
-}
-
-impl From<std::io::Error> for LocalStorageError {
-    fn from(value: std::io::Error) -> Self {
-        LocalStorageError::IoError(value)
-    }
-}
-
-impl From<toml::de::Error> for LocalStorageError {
-    fn from(value: toml::de::Error) -> Self {
-        LocalStorageError::SerieLoadFailed(value)
-    }
-}
-
-impl From<glob::PatternError> for LocalStorageError {
-    fn from(value: glob::PatternError) -> Self {
-        LocalStorageError::GlobPattern(value)
-    }
-}
-
-impl From<glob::GlobError> for LocalStorageError {
-    fn from(value: glob::GlobError) -> Self {
-        LocalStorageError::GlobError(value)
-    }
+    #[error("Input / Output error")]
+    IOError(#[from] std::io::Error),
 }
 
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct LocalStorageConfig {
     pub posts_dir: PathBuf,
-    pub series_list: PathBuf,
+    pub post_registry: PathBuf,
 }
 
 impl From<&Args> for LocalStorageConfig {
     fn from(args: &Args) -> Self {
         LocalStorageConfig {
+            post_registry: args.posts_registry.clone(),
             posts_dir: args.posts_dir.clone(),
-            series_list: args.series_list.clone(),
         }
     }
 }
@@ -73,89 +42,69 @@ impl From<&Args> for LocalStorageConfig {
 impl LocalStorageConfig {
     pub fn validate(&self) -> Result<(), Errcode> {
         if !self.posts_dir.exists() {
-            return Err(Errcode::PathDoesntExist("posts", self.posts_dir.clone()));
-        }
-        if !self.series_list.exists() {
             return Err(Errcode::PathDoesntExist(
-                "series.toml",
-                self.series_list.clone(),
+                "posts dir",
+                self.posts_dir.clone(),
+            ));
+        }
+        if !self.post_registry.exists() {
+            return Err(Errcode::PathDoesntExist(
+                "posts list",
+                self.post_registry.clone(),
             ));
         }
         Ok(())
     }
 }
 
+#[derive(Deserialize, Clone, Debug)]
+pub struct PostsRegistry {
+    cache_duration: u64, // In seconds
+
+    series: HashMap<String, SerieMetadata>,
+    posts: HashMap<String, PostMetadata>,
+    post_contents_path: HashMap<String, PathBuf>,
+}
+
 #[derive(Clone)]
 pub struct LocalStorage {
     config: LocalStorageConfig,
-    path_cache: Arc<RwLock<BTreeMap<u64, PathBuf>>>,
-    series_cache: Arc<RwLock<HashMap<String, SerieMetadata>>>,
     md_render: MarkdownRenderer,
+    registry: Arc<RwLock<PostsRegistry>>,
+    last_updated: Arc<RwLock<Instant>>,
 }
 
 impl LocalStorage {
-    fn search_post_fpath(&self, id: u64) -> Result<Option<PathBuf>, LocalStorageError> {
-        if let Some(path) = self.path_cache.read().unwrap().get(&id) {
-            if path.exists() {
-                return Ok(Some(path.clone()));
-            }
-        }
-
-        let all_paths =
-            glob::glob(format!("{}/**/*.md", self.config.posts_dir.to_str().unwrap()).as_str())?;
-        for fres in all_paths.into_iter() {
-            let f = fres?;
-            let post_metadata = PostMetadata::read_from_file(&f.with_extension("json"))
-                .map_err(|e| LocalStorageError::MetadataParsing(Box::new(e)))?;
-            if post_metadata.id == id {
-                log::debug!("Found post {}", post_metadata.id);
-                self.path_cache.write().unwrap().insert(id, f.clone());
-                return Ok(Some(f));
-            }
-        }
-        Ok(None)
-    }
-
-    fn update_series_list(&self) -> Result<(), LocalStorageError> {
-        let strdata = std::fs::read_to_string(&self.config.series_list)?;
-        let all_series: HashMap<String, SerieMetadata> = toml::from_str(&strdata)?;
-
-        let mut series = self
-            .series_cache
-            .write()
-            .expect("write series update_series_list");
-        *series = HashMap::new();
-        for (slug, mut md) in all_series.into_iter() {
-            md.slug = slug.clone();
-            series.insert(slug, md);
-        }
-        Ok(())
-    }
-
-    fn try_get_serie(&self, md: &mut PostMetadata) -> Result<(), LocalStorageError> {
-        if let Some(ref slug) = md.serie {
-            let title_opt = self
-                .series_cache
-                .read()
-                .expect("try_get_serie read series_cache")
-                .get(slug)
-                .map(|md| md.title.clone());
-            if let Some(title) = title_opt {
-                md.serie_title = Some(title);
-            } else {
-                self.update_series_list()?;
-                match self
-                    .series_cache
-                    .read()
-                    .expect("try_get_serie read series_cache")
-                    .get(slug)
-                {
-                    Some(serie_md) => md.serie_title = Some(serie_md.title.clone()),
-                    None => return Err(LocalStorageError::SerieNotFound(slug.clone())),
+    // TODO    Find a cleaner way to check last update registry cache
+    pub fn update_registry_if_needed(&self) {
+        let updated = if self.last_updated.read().elapsed()
+            > Duration::from_secs(self.registry.read().cache_duration)
+        {
+            let Ok(reg_str) = std::fs::read_to_string(&self.config.post_registry) else {
+                return;
+            };
+            let Ok(mut new_registry) = toml::from_str::<PostsRegistry>(
+                reg_str.as_str()
+            ) else {
+                return;
+            };
+            new_registry.posts.iter_mut().for_each(|(_, md)| {
+                if let Some(ref slug) = md.serie {
+                    md.serie_title = new_registry
+                        .series
+                        .get(slug)
+                        .map(|serie_md| serie_md.title.clone());
                 }
-            }
+                md.compute_id()
+            });
+            *self.registry.write() = new_registry;
+            true
+        } else {
+            false
+        };
+        if updated {
+            *self.last_updated.write() = Instant::now();
         }
-        Ok(())
     }
 }
 
@@ -166,29 +115,31 @@ impl StorageTrait for LocalStorage {
     where
         Self: Sized,
     {
+        let storage_config = config.storage_cfg.clone();
+        let registry =
+            toml::from_str(std::fs::read_to_string(&storage_config.post_registry)?.as_str())?;
         Ok(LocalStorage {
             md_render: MarkdownRenderer::init(config),
-            config: config.storage_cfg.clone(),
-            series_cache: Arc::new(RwLock::new(HashMap::new())),
-            path_cache: Arc::new(RwLock::new(BTreeMap::new())),
+            config: storage_config,
+            registry: Arc::new(RwLock::new(registry)),
+            last_updated: Arc::new(RwLock::new(
+                Instant::now() - Duration::from_secs(60 * 60 * 24),
+            )),
         })
     }
 
     fn query_post(&self, query: StorageQuery) -> Result<Vec<PostMetadata>, Self::Error> {
-        let mut res = vec![];
-        let all_paths =
-            glob::glob(format!("{}/**/*.json", self.config.posts_dir.to_str().unwrap()).as_str())?;
-
-        for fres in all_paths.into_iter() {
-            let f = fres?;
-            let mut post_metadata = PostMetadata::read_from_file(&f)
-                .map_err(|e| LocalStorageError::MetadataParsing(Box::new(e)))?;
-            if post_metadata.filter(&query.post_filter) {
-                self.try_get_serie(&mut post_metadata)?;
-                res.push(post_metadata);
-            }
-        }
-        res.sort_by(|a, b| {
+        self.update_registry_if_needed();
+        let mut all_md: Vec<PostMetadata> = self
+            .registry
+            .read()
+            .posts
+            .iter()
+            .filter(|(_, md)| md.filter(&query.post_filter))
+            .map(|(_, md)| md)
+            .cloned()
+            .collect();
+        all_md.sort_by(|a, b| {
             let ord = a.date.cmp(&b.date);
             if query.reverse_order {
                 ord.reverse()
@@ -197,30 +148,35 @@ impl StorageTrait for LocalStorage {
             }
         });
         let limit = if query.limit == 0 {
-            res.len()
+            all_md.len()
         } else {
             query.limit
         };
-        Ok(res.into_iter().skip(query.offset).take(limit).collect())
+        Ok(all_md.into_iter().skip(query.offset).take(limit).collect())
     }
 
     fn query_serie(&self, query: StorageQuery) -> Result<Vec<SerieMetadata>, Self::Error> {
-        self.update_series_list()?;
-        let mut res: Vec<SerieMetadata> = self
-            .series_cache
+        self.update_registry_if_needed();
+        let mut all_series: Vec<SerieMetadata> = self
+            .registry
             .read()
-            .expect("read series_cache query_serie")
-            .values()
-            .filter(|md| {
-                if let Some(ref slug) = query.serie_slug {
-                    slug == &md.slug
+            .series
+            .iter()
+            .filter(|(slug, _)| {
+                if let Some(ref qslug) = query.serie_slug {
+                    qslug == *slug
                 } else {
                     true
                 }
             })
-            .cloned()
+            .map(|(slug, md)| {
+                let mut md = md.clone();
+                md.slug = slug.clone();
+                md
+            })
             .collect();
-        res.sort_by(|a, b| {
+
+        all_series.sort_by(|a, b| {
             let ord = a.end_date.cmp(&b.end_date);
             if query.reverse_order {
                 ord.reverse()
@@ -229,29 +185,28 @@ impl StorageTrait for LocalStorage {
             }
         });
         let limit = if query.limit == 0 {
-            res.len()
+            all_series.len()
         } else {
             query.limit
         };
-        Ok(res.into_iter().skip(query.offset).take(limit).collect())
+        Ok(all_series
+            .into_iter()
+            .skip(query.offset)
+            .take(limit)
+            .collect())
     }
 
     fn query_category(&self, query: StorageQuery) -> Result<Vec<String>, Self::Error> {
-        let mut res = vec![];
-        let all_paths =
-            glob::glob(format!("{}/**/*.json", self.config.posts_dir.to_str().unwrap()).as_str())?;
+        self.update_registry_if_needed();
+        let mut all_categories: Vec<String> = self
+            .registry
+            .read()
+            .posts
+            .iter()
+            .filter_map(|(_, md)| md.category.clone())
+            .collect();
 
-        for fres in all_paths.into_iter() {
-            let f = fres?;
-            let post_metadata = PostMetadata::read_from_file(&f)
-                .map_err(|e| LocalStorageError::MetadataParsing(Box::new(e)))?;
-            if let Some(ref cat) = post_metadata.category {
-                if !res.contains(cat) {
-                    res.push(cat.clone());
-                }
-            }
-        }
-        res.sort_by(|a, b| {
+        all_categories.sort_by(|a, b| {
             let ord = a.cmp(b);
             if query.reverse_order {
                 ord.reverse()
@@ -260,21 +215,36 @@ impl StorageTrait for LocalStorage {
             }
         });
         let limit = if query.limit == 0 {
-            res.len()
+            all_categories.len()
         } else {
             query.limit
         };
-        Ok(res.into_iter().skip(query.offset).take(limit).collect())
+        Ok(all_categories
+            .into_iter()
+            .skip(query.offset)
+            .take(limit)
+            .collect())
     }
 
     fn get_post_content(&self, id: u64) -> Result<Option<Post>, Self::Error> {
-        let Some(fpath) = self.search_post_fpath(id)? else {
+        self.update_registry_if_needed();
+
+        let Some((slug, mut metadata)) = self.registry.read().posts
+            .iter()
+            .filter_map(|(slug, md)| if md.id == id {
+                Some((slug, md))
+            } else {
+                None
+            }).last().map(|(slug, md)| (slug.clone(), md.clone())) else {
             return Ok(None);
         };
-        let content = std::fs::read_to_string(&fpath)?;
-        let mut metadata = PostMetadata::read_from_file(&fpath.with_extension("json"))
-            .map_err(|e| LocalStorageError::MetadataParsing(Box::new(e)))?;
 
+        let fpath = if let Some(path) = self.registry.read().post_contents_path.get(&slug) {
+            path.clone()
+        } else {
+            return Ok(None);
+        };
+        let content = std::fs::read_to_string(self.config.posts_dir.join(fpath))?;
         let html = self.md_render.render(content, &metadata);
 
         metadata.compute_checksum(&html);

@@ -101,19 +101,4 @@ impl PostLoader {
 
         Ok(self.storage.query_post(query)?)
     }
-
-    pub fn check_rerender(&self, md: &PostMetadata) -> bool {
-        let res = if let Some(stored_md) = self.cache.get_post_md(&md.id) {
-            md.content_checksum != stored_md.content_checksum
-        } else {
-            true
-        };
-        if res {
-            self.cache.add_post_md(md.id, md.clone());
-        }
-        // TODO    Check md.last_sync and compare to last_add for given category
-        // TODO    Check md.last_sync and compare to last_add for given serie
-        // TODO    Check md.last_sync and compare to last_add for given tag
-        res
-    }
 }

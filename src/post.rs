@@ -1,22 +1,20 @@
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::path::Path;
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::cache::CacheElement;
-use crate::errors::Errcode;
 use crate::loader::PostFilter;
 use crate::render::context::SiteContext;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SerieMetadata {
-    pub title: String,
-    pub description: String,
     #[serde(skip_deserializing)]
     pub slug: String,
+    pub title: String,
+    pub description: String,
     pub end_date: i64, // Seconds since Epoch
 }
 
@@ -36,15 +34,12 @@ pub struct PostMetadata {
     pub modified: Option<i64>,
 
     #[serde(default)]
-    pub images_add_attribute: HashMap<usize, String>,
+    pub images_add_attribute: HashMap<String, String>,
     #[serde(default)]
     pub tags: Vec<String>,
 
     #[serde(skip_deserializing)]
     pub content_checksum: u64,
-
-    #[serde(skip_deserializing)]
-    last_sync: Option<i64>, // Last time the related posts were synced
 }
 
 impl PostMetadata {
@@ -52,24 +47,6 @@ impl PostMetadata {
         let mut s = DefaultHasher::new();
         content.hash(&mut s);
         self.content_checksum = s.finish();
-    }
-
-    pub fn read_from_file(f: &Path) -> Result<PostMetadata, Errcode> {
-        let file = std::fs::File::open(f)?;
-        let mut metadata: PostMetadata = serde_json::from_reader(file)?;
-        metadata.compute_id();
-        metadata.validate()?;
-        Ok(metadata)
-    }
-
-    pub fn validate(&self) -> Result<(), Errcode> {
-        if let Some(m) = self.modified {
-            // Modified before published
-            if m < self.date {
-                return Err(Errcode::MetadataValidationFailed("post", "mod_date < date"));
-            }
-        }
-        Ok(())
     }
 
     pub fn compute_id(&mut self) {
@@ -125,8 +102,8 @@ impl CacheElement for PostMetadata {
         if self.modified.is_some() {
             sz += std::mem::size_of::<i64>();
         }
-        for val in self.images_add_attribute.values() {
-            sz += std::mem::size_of::<usize>();
+        for (key, val) in self.images_add_attribute.iter() {
+            sz += key.len();
             sz += val.len();
         }
         for tag in self.tags.iter() {

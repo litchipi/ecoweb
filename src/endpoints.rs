@@ -12,46 +12,13 @@ fn response(page: String) -> HttpResponse {
     HttpResponse::Ok().body(page)
 }
 
-// TODO    Print CSS
+async fn not_found(rdr: Data<Render>) -> HttpResponse {
+    HttpResponse::NotFound().body(rdr.render_not_found())
+}
 
 #[get("/")]
 async fn index(ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
     match _index(&ldr, &rdr).await {
-        Ok(r) => r,
-        Err(e) => raise_error(e, &rdr),
-    }
-}
-
-#[get("/rss")]
-async fn get_rss_feed(ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
-    match _get_rss_feed(&ldr, &rdr).await {
-        Ok(r) => r,
-        Err(e) => raise_error(e, &rdr),
-    }
-}
-#[get("/allposts")]
-async fn get_all_posts(ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
-    match _get_all_posts(&ldr, &rdr).await {
-        Ok(r) => r,
-        Err(e) => raise_error(e, &rdr),
-    }
-}
-
-#[get("/category/{name}")]
-async fn get_category(
-    args: web::Path<String>,
-    ldr: Data<Loader>,
-    rdr: Data<Render>,
-) -> HttpResponse {
-    match _get_category(args.into_inner(), &ldr, &rdr).await {
-        Ok(r) => r,
-        Err(e) => raise_error(e, &rdr),
-    }
-}
-
-#[get("/serie/{slug}")]
-async fn get_serie(slug: web::Path<String>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
-    match _get_serie(slug.into_inner(), &ldr, &rdr).await {
         Ok(r) => r,
         Err(e) => raise_error(e, &rdr),
     }
@@ -65,6 +32,14 @@ async fn _index(ldr: &Loader, rdr: &Render) -> Result<HttpResponse, Errcode> {
     Ok(response(rendered))
 }
 
+#[get("/rss")]
+async fn get_rss_feed(ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
+    match _get_rss_feed(&ldr, &rdr).await {
+        Ok(r) => r,
+        Err(e) => raise_error(e, &rdr),
+    }
+}
+
 async fn _get_rss_feed(ldr: &Loader, rdr: &Render) -> Result<HttpResponse, Errcode> {
     let all_posts = ldr.posts.get_recent(PostFilter::NoFilter, true, None)?;
     let rendered = rdr.render_rss_feed(all_posts)?;
@@ -73,10 +48,30 @@ async fn _get_rss_feed(ldr: &Loader, rdr: &Render) -> Result<HttpResponse, Errco
         .body(rendered))
 }
 
+#[get("/allposts")]
+async fn get_all_posts(ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
+    match _get_all_posts(&ldr, &rdr).await {
+        Ok(r) => r,
+        Err(e) => raise_error(e, &rdr),
+    }
+}
+
 async fn _get_all_posts(ldr: &Loader, rdr: &Render) -> Result<HttpResponse, Errcode> {
     let all_posts = ldr.posts.get_recent(PostFilter::NoFilter, true, None)?;
     let rendered = rdr.render_list_allposts(all_posts)?;
     Ok(response(rendered))
+}
+
+#[get("/category/{name}")]
+async fn get_category(
+    args: web::Path<String>,
+    ldr: Data<Loader>,
+    rdr: Data<Render>,
+) -> HttpResponse {
+    match _get_category(args.into_inner(), &ldr, &rdr).await {
+        Ok(r) => r,
+        Err(e) => raise_error(e, &rdr),
+    }
 }
 
 async fn _get_category(name: String, ldr: &Loader, rdr: &Render) -> Result<HttpResponse, Errcode> {
@@ -97,6 +92,14 @@ async fn _get_category(name: String, ldr: &Loader, rdr: &Render) -> Result<HttpR
     Ok(response(rendered))
 }
 
+#[get("/serie/{slug}")]
+async fn get_serie(slug: web::Path<String>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
+    match _get_serie(slug.into_inner(), &ldr, &rdr).await {
+        Ok(r) => r,
+        Err(e) => raise_error(e, &rdr),
+    }
+}
+
 async fn _get_serie(slug: String, ldr: &Loader, rdr: &Render) -> Result<HttpResponse, Errcode> {
     let all_posts = ldr.posts.list_posts_serie(slug.clone(), vec![])?;
     if let Some(serie_md) = ldr.get_serie_md(slug.clone())? {
@@ -114,6 +117,14 @@ async fn _get_serie(slug: String, ldr: &Loader, rdr: &Render) -> Result<HttpResp
     }
 }
 
+#[get("/tag/{tag}")]
+async fn get_by_tag(args: web::Path<String>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
+    match _get_by_tag(args.into_inner(), &ldr, &rdr).await {
+        Ok(r) => r,
+        Err(e) => raise_error(e, &rdr),
+    }
+}
+
 async fn _get_by_tag(tag: String, ldr: &Loader, rdr: &Render) -> Result<HttpResponse, Errcode> {
     let all_posts = ldr
         .posts
@@ -127,17 +138,18 @@ async fn _get_by_tag(tag: String, ldr: &Loader, rdr: &Render) -> Result<HttpResp
     Ok(response(rendered))
 }
 
-// TODO    Add read time estimation inside render context (based on post content number of words)
+#[get("/post/{id}")]
+async fn get_post(id: web::Path<u64>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
+    match _get_post(id.into_inner(), &ldr, &rdr).await {
+        Ok(r) => r,
+        Err(e) => raise_error(e, &rdr),
+    }
+}
+
 async fn _get_post(id: u64, ldr: &Loader, rdr: &Render) -> Result<HttpResponse, Errcode> {
     let Some((post, nav)) = ldr.posts.get(id)? else {
         return Err(Errcode::NotFound("post_id", id.to_string()));
     };
-    if !ldr.posts.check_rerender(&post.metadata) {
-        if let Some(res) = ldr.cache.get_post_page(&post.metadata.id) {
-            log::debug!("Got page from cache");
-            return Ok(HttpResponse::Ok().body(res));
-        }
-    }
 
     let mut ctxt = rdr.base_context.clone();
     ctxt.insert("post_metadata", &post.metadata);
@@ -185,27 +197,7 @@ async fn _get_post(id: u64, ldr: &Loader, rdr: &Render) -> Result<HttpResponse, 
     }
 
     let rendered = rdr.render_post(post, nav, ctxt)?;
-    ldr.cache.add_post_page(id, rendered.clone());
     Ok(response(rendered))
-}
-
-#[get("/tag/{tag}")]
-async fn get_by_tag(args: web::Path<String>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
-    match _get_by_tag(args.into_inner(), &ldr, &rdr).await {
-        Ok(r) => r,
-        Err(e) => raise_error(e, &rdr),
-    }
-}
-
-#[get("/post/{id}")]
-async fn get_post(id: web::Path<u64>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
-    match _get_post(id.into_inner(), &ldr, &rdr).await {
-        Ok(r) => r,
-        Err(e) => raise_error(e, &rdr),
-    }
-}
-async fn not_found(rdr: Data<Render>) -> HttpResponse {
-    HttpResponse::NotFound().body(rdr.render_not_found())
 }
 
 pub fn configure(srv: &mut web::ServiceConfig) -> Result<(), Errcode> {

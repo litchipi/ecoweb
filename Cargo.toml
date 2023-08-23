@@ -25,6 +25,7 @@ futures-util = "0.3.28"
 parking_lot = "0.12.1"
 mime = "0.3.17"
 clap = { version = "4.3.19", features = ["derive"] }
+thiserror = "1.0.47"
 
 [dependencies.syntect]
 version = "5.0"

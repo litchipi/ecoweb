@@ -106,14 +106,17 @@ impl MarkdownRenderer {
 
         let mut html_imgind = String::new();
         let mut tail = 0;
+        // TODO    Find a way to get the filename of the source as a slug to be used in key
+        //    Instead of the image index
         for (n, cap) in self.image_indexer_re.captures_iter(&html_sec).enumerate() {
+            log::debug!("Image add attributes: {:?}", metadata.images_add_attribute);
             let cap = cap.get(1).unwrap();
             let start = cap.start() - 4;
             html_imgind += &html_sec[tail..start];
             html_imgind += format!(
                 "<img id=\"{n}\" {} {}",
                 cap.as_str(),
-                if let Some(s) = metadata.images_add_attribute.get(&n) {
+                if let Some(s) = metadata.images_add_attribute.get(&format!("{n}")) {
                     s
                 } else {
                     ""

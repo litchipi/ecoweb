@@ -6,7 +6,7 @@ use std::hash::Hash;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Configuration;
-use crate::post::{Post, PostMetadata};
+use crate::post::Post;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct CacheConfig {
@@ -145,12 +145,9 @@ pub trait CacheElement: Clone {
 
 pub struct Cache {
     posts: RwLock<CacheMap<u64, Post>>,
-    post_md: RwLock<CacheMap<u64, PostMetadata>>,
     post_nav: RwLock<CacheMap<u64, String>>,
-    post_page_rendered: RwLock<CacheMap<u64, String>>,
 }
 
-#[allow(dead_code)]
 impl Cache {
     pub fn init(cfg: &Configuration) -> Cache {
         let size = cfg.cache.get_cache_size();
@@ -162,8 +159,6 @@ impl Cache {
         Cache {
             posts: RwLock::new(CacheMap::empty(size[0])),
             post_nav: RwLock::new(CacheMap::empty(size[1])),
-            post_page_rendered: RwLock::new(CacheMap::empty(size[2])),
-            post_md: RwLock::new(CacheMap::empty(size[3])),
         }
     }
 
@@ -181,22 +176,6 @@ impl Cache {
 
     pub fn get_post_nav(&self, id: &u64) -> Option<String> {
         self.post_nav.write().get_copy(id)
-    }
-
-    pub fn add_post_page(&self, id: u64, data: String) {
-        self.post_page_rendered.write().add(id, data);
-    }
-
-    pub fn get_post_page(&self, id: &u64) -> Option<String> {
-        self.post_page_rendered.write().get_copy(id)
-    }
-
-    pub fn add_post_md(&self, id: u64, data: PostMetadata) {
-        self.post_md.write().add(id, data)
-    }
-
-    pub fn get_post_md(&self, id: &u64) -> Option<PostMetadata> {
-        self.post_md.write().get_copy(id)
     }
 }
 
