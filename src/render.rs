@@ -50,6 +50,7 @@ pub struct Render {
     pub base_context: Context,
     site_context: SiteContext,
 
+    // Templates
     post_template: String,
     post_list_template: String,
     index_template: String,

@@ -16,6 +16,7 @@ pub struct SiteContext {
     pub copyrights: String,
 
     pub social: HashMap<String, String>,
+    pub webring: WebringContext,
 }
 
 impl SiteContext {
@@ -49,4 +50,11 @@ impl SiteContext {
         .as_str();
         *xml += format!("<copyright>{}</copyright>", self.copyrights).as_str();
     }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct WebringContext {
+    name: String,
+    next: String,
+    previous: String,
 }

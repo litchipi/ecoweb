@@ -3,8 +3,8 @@
 BLOG_DATA_DIR=../blog
 
 clear
+#release --features minify -- \
 cargo run --features dev -- \
-# cargo run --release --features minify -- \
   --config-file $BLOG_DATA_DIR/config.toml \
   --site-config-file $BLOG_DATA_DIR/site.toml \
   --favicon $BLOG_DATA_DIR/favicon.png \

@@ -118,6 +118,6 @@ async fn main() -> std::io::Result<()> {
     .bind(("0.0.0.0", port))?
     .run();
 
-    log::info!("Started on http://127.0.0.1:{port}");
+    log::info!("Started on http://0.0.0.0:{port}");
     srv.await
 }
