@@ -20,7 +20,7 @@ pub struct SerieMetadata {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PostMetadata {
-    #[serde(skip_deserializing)]
+    #[serde(default, deserialize_with = "deser_id")]
     pub id: u64,
     pub title: String,
     pub description: Option<String>,
@@ -50,11 +50,13 @@ impl PostMetadata {
     }
 
     pub fn compute_id(&mut self) {
-        let mut s = DefaultHasher::new();
-        self.title.hash(&mut s);
-        self.serie.hash(&mut s);
-        self.category.hash(&mut s);
-        self.id = s.finish();
+        if self.id == 0 {
+            let mut s = DefaultHasher::new();
+            self.title.hash(&mut s);
+            self.serie.hash(&mut s);
+            self.category.hash(&mut s);
+            self.id = s.finish();
+        }
     }
 
     pub fn filter(&self, filter: &PostFilter) -> bool {
@@ -162,4 +164,15 @@ impl PostMetadata {
         }
         *xml += "</item>";
     }
+}
+
+fn deser_id<'de, T, D>(de: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: std::str::FromStr,
+    <T as std::str::FromStr>::Err: std::fmt::Display,
+{
+    let str_repr = String::deserialize(de)?;
+    println!("Deserialize IP {str_repr}");
+    Ok(str_repr.parse().map_err(serde::de::Error::custom)?)
 }

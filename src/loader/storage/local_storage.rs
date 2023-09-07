@@ -77,6 +77,11 @@ pub struct LocalStorage {
 impl LocalStorage {
     // TODO    Find a cleaner way to check last update registry cache
     pub fn update_registry_if_needed(&self) {
+        #[cfg(feature = "hot_reloading")]
+        {
+            self.registry.write().cache_duration = 0;
+        }
+
         let updated = if self.last_updated.read().elapsed()
             > Duration::from_secs(self.registry.read().cache_duration)
         {
