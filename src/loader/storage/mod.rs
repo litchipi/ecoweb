@@ -18,10 +18,11 @@ pub trait StorageTrait {
     fn init(config: &Arc<Configuration>) -> Result<Self, Self::Error>
     where
         Self: Sized;
-    fn query_post(&self, query: StorageQuery) -> Result<Vec<PostMetadata>, Self::Error>;
+    fn clean_exit(self) -> Result<(), Errcode>;
+    fn get_post_content(&self, id: u64) -> Result<Option<Post>, Self::Error>;
+    fn query_post_metadata(&self, query: StorageQuery) -> Result<Vec<PostMetadata>, Self::Error>;
     fn query_serie(&self, query: StorageQuery) -> Result<Vec<SerieMetadata>, Self::Error>;
     fn query_category(&self, query: StorageQuery) -> Result<Vec<String>, Self::Error>;
-    fn get_post_content(&self, id: u64) -> Result<Option<Post>, Self::Error>;
 }
 
 #[derive(Debug)]

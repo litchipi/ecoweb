@@ -1,169 +1,237 @@
 use std::collections::HashMap;
-use std::io::Write;
 
-use comrak::adapters::SyntaxHighlighterAdapter;
-use comrak::html::escape;
-use comrak::{markdown_to_html_with_plugins, ComrakOptions, ComrakPlugins};
-use regex::Regex;
-use syntect::highlighting::{Theme, ThemeSet};
+use crate::post::PostMetadata;
+use mdtrans::{transform_markdown_string, MarkdownTransformer};
 use syntect::html::{ClassStyle, ClassedHTMLGenerator};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
 
-use crate::config::Configuration;
-use crate::post::PostMetadata;
-
-const SECTIONIZE_REGEX: &str =
-    "<h(\\d)>\\s?<a href=\"#(.*?)\" .*? class=\"anchor\".*?>[\\s\\S]*?</h(\\d)>";
-
-const IMAGES_INDEXER_REGEX: &str = "<img(.*?)/>";
-
 #[derive(Clone)]
-pub struct MarkdownRenderer {
-    pub theme: Theme,
-    syntax_set: SyntaxSet,
-    comrak_opts: ComrakOptions,
-    sectionize_re: Regex,
-    image_indexer_re: Regex,
-}
+pub struct MarkdownRenderer {}
 
 impl MarkdownRenderer {
-    pub fn init(cfg: &Configuration) -> MarkdownRenderer {
-        let theme_set = ThemeSet::load_defaults();
-        let syntax_set = SyntaxSet::load_defaults_newlines();
-
-        let mut comrak_opts = ComrakOptions::default();
-        comrak_opts.extension.header_ids = Some("".to_string());
-
-        let sectionize_re = Regex::new(SECTIONIZE_REGEX).unwrap();
-        let image_indexer_re = Regex::new(IMAGES_INDEXER_REGEX).unwrap();
-
-        MarkdownRenderer {
-            theme: theme_set.themes.get(&cfg.code_theme).unwrap().clone(),
-            comrak_opts,
-            syntax_set,
-            sectionize_re,
-            image_indexer_re,
-        }
+    pub fn init() -> MarkdownRenderer {
+        MarkdownRenderer {}
     }
 
-    pub fn highlight(&self, code: &str, lang: &str) -> Result<String, syntect::Error> {
-        let Some(syntax) = self.syntax_set.find_syntax_by_token(lang) else {
-            let mut res = vec![];
-            escape(&mut res, code.as_bytes())?;
-            return Ok(String::from_utf8(res).unwrap());
-        };
-        let mut html_generator = ClassedHTMLGenerator::new_with_class_style(
-            syntax,
-            &self.syntax_set,
-            ClassStyle::Spaced,
-        );
-        for line in LinesWithEndings::from(code) {
-            html_generator.parse_html_for_line_which_includes_newline(line)?;
+    pub fn render(
+        &self,
+        content: String,
+        _: &PostMetadata,
+    ) -> Result<(String, String), mdtrans::Errcode> {
+        let mut transformer = MarkdownToHtml::init();
+        let mut body = transform_markdown_string(content, &mut transformer)?;
+        if transformer.current_section > 0 {
+            body += "</section>";
         }
-        let output_html = html_generator.finalize();
-        Ok(output_html)
+
+        let nav = self.render_nav(transformer.sections);
+        Ok((body, nav))
     }
 
-    pub fn render(&self, content: String, metadata: &PostMetadata) -> String {
-        let mut plugins = ComrakPlugins::default();
-        plugins.render.codefence_syntax_highlighter = Some(self);
-        let html_base = markdown_to_html_with_plugins(&content, &self.comrak_opts, &plugins);
-
-        let mut html_sec = String::new();
-        let mut last = None;
-        let mut nb_open = 0;
-        for cap in self.sectionize_re.captures_iter(&html_base) {
-            let lvl_cap = cap.get(1).unwrap();
-            let end = lvl_cap.start() - 2;
-            let lvl: usize = lvl_cap.as_str().parse().unwrap();
-            let id = cap[2].to_string();
-
-            if let Some((mut last_lvl, start)) = last {
-                html_sec += &html_base[start..end];
-                while lvl <= last_lvl {
-                    html_sec += "</section>";
-                    last_lvl -= 1;
-                    nb_open -= 1;
-                    assert!(nb_open >= 0);
-                }
-            } else {
-                html_sec += &html_base[..(lvl_cap.start() - 2)];
+    fn render_nav(&self, sections: Vec<(usize, String, String)>) -> String {
+        let mut nav = String::new();
+        let mut last_level = 0;
+        for (level, title, slug) in sections {
+            let link = format!("<a href=\"#{slug}\" class=\"h{level}\">{title}</a>");
+            if level == last_level {
+                nav += "<li>";
+                nav += link.as_str();
+                nav += "</li>";
             }
-            let start_next = cap.get(3).unwrap().end() + 1;
-            html_sec += format!("<section id={}>", id).as_str();
-            nb_open += 1;
-            html_sec += &cap[0];
-            last = Some((lvl, start_next));
-        }
-        if let Some((_, start)) = last {
-            html_sec += &html_base[start..];
-            while nb_open > 0 {
-                html_sec += "</section>";
-                nb_open -= 1;
-            }
-        }
-
-        let mut html_imgind = String::new();
-        let mut tail = 0;
-        // TODO    Find a way to get the filename of the source as a slug to be used in key
-        //    Instead of the image index
-        for (n, cap) in self.image_indexer_re.captures_iter(&html_sec).enumerate() {
-            log::debug!("Image add attributes: {:?}", metadata.images_add_attribute);
-            let cap = cap.get(1).unwrap();
-            let start = cap.start() - 4;
-            html_imgind += &html_sec[tail..start];
-            html_imgind += format!(
-                "<img id=\"{n}\" {} {}",
-                cap.as_str(),
-                if let Some(s) = metadata.images_add_attribute.get(&format!("{n}")) {
-                    s
-                } else {
-                    ""
+            if level > last_level {
+                if last_level > 0 {
+                    nav += "<li>";
                 }
-            )
-            .as_str();
-            tail = cap.end() + 1;
+                while level > last_level {
+                    nav += "<ul><li>";
+                    last_level += 1;
+                }
+                nav += link.as_str();
+                nav += "</li>";
+            }
+            if level < last_level {
+                while level < last_level {
+                    nav += "</ul></li>";
+                    last_level -= 1;
+                }
+                nav += "<li>";
+                nav += link.as_str();
+                nav += "</li>";
+            }
+            last_level = level;
+            nav += "\n";
         }
-        html_imgind += &html_sec[tail..];
-        html_imgind
+        while last_level > 1 {
+            nav += "</ul></li>";
+            last_level -= 1;
+        }
+        nav += "</ul>";
+        nav
     }
 }
 
-impl SyntaxHighlighterAdapter for MarkdownRenderer {
-    fn write_highlighted(
-        &self,
-        output: &mut dyn Write,
-        lang: Option<&str>,
-        code: &str,
-    ) -> std::io::Result<()> {
-        if let Some(l) = lang {
-            write!(output, "<span class=\"lang-{}\">", l)?;
-            write!(output, "{}", self.highlight(code, l).unwrap())?;
-        } else {
-            write!(output, "<span class=\"nolang\">")?;
-            escape(output, code.as_bytes())?;
+struct MarkdownToHtml {
+    refs: HashMap<String, String>,
+    syntax_set: SyntaxSet,
+
+    sections: Vec<(usize, String, String)>,
+    current_section: usize,
+}
+
+impl MarkdownToHtml {
+    fn init() -> MarkdownToHtml {
+        MarkdownToHtml {
+            refs: HashMap::new(),
+            syntax_set: SyntaxSet::load_defaults_newlines(),
+
+            sections: vec![],
+            current_section: 0,
         }
-        write!(output, "</span>")
+    }
+    fn sanitize_html(&self, text: String) -> String {
+        text.replace('<', "&lt;").replace('>', "&gt;")
     }
 
-    fn write_pre_tag(
-        &self,
-        output: &mut dyn Write,
-        _attributes: HashMap<String, String>,
-    ) -> std::io::Result<()> {
-        output.write_all(b"<pre>")
+    fn slugify_header(&self, text: &str) -> String {
+        format!(
+            "{}-{}",
+            self.sections.len(),
+            text.to_lowercase()
+                .replace(' ', "-")
+                .chars()
+                .filter(|c| *c == '-' || c.is_alphanumeric())
+                .collect::<String>()
+        )
+    }
+}
+
+impl MarkdownTransformer for MarkdownToHtml {
+    fn transform_text(&mut self, text: String) -> String {
+        self.sanitize_html(text)
     }
 
-    fn write_code_tag(
-        &self,
-        output: &mut dyn Write,
-        attributes: HashMap<String, String>,
-    ) -> std::io::Result<()> {
-        if let Some(l) = attributes.get("class") {
-            output.write_all(format!("<code class=\"{}\">", l).as_bytes())
-        } else {
-            output.write_all(b"<code class=\"nolang\">")
+    fn transform_quote(&mut self, text: String) -> String {
+        format!("<blockquote>{text}</blockquote>")
+    }
+
+    fn transform_image(
+        &mut self,
+        alt: String,
+        url: String,
+        add_tags: std::collections::HashMap<String, String>,
+    ) -> String {
+        let mut metadata = " ".to_string();
+        metadata += add_tags
+            .into_iter()
+            .map(|(key, val)| {
+                let val = val.trim_start_matches('\"').trim_end_matches('\"');
+                format!(" {key}=\"{val}\"")
+            })
+            .collect::<Vec<String>>()
+            .join(" ")
+            .as_str();
+        format!("<img src=\"{url}\" alt=\"{alt}\"{metadata}>")
+    }
+
+    fn transform_bold(&mut self, text: String) -> String {
+        format!("<strong>{text}</strong>")
+    }
+
+    fn transform_italic(&mut self, text: String) -> String {
+        format!("<em>{text}</em>")
+    }
+
+    fn transform_link(&mut self, text: String, url: String) -> String {
+        format!("<a href=\"{url}\">{text}</a>")
+    }
+
+    fn transform_header(&mut self, level: usize, text: String) -> String {
+        let mut buffer = "".to_string();
+        if self.current_section > 0 {
+            buffer += "</section>";
         }
+        let (sec_level, _, slug) = self.sections.get(self.current_section).unwrap();
+        assert_eq!(sec_level, &level);
+        buffer += format!("<section id=\"{slug}\">").as_str();
+        buffer += format!("<h{level}>{text}</h{level}>").as_str();
+        self.current_section += 1;
+        buffer
+    }
+
+    fn peek_header(&mut self, level: usize, text: String) {
+        let slug = self.slugify_header(&text);
+        self.sections.push((level, text, slug));
+    }
+
+    fn transform_inline_code(&mut self, text: String) -> String {
+        format!("<code>{}</code>", self.sanitize_html(text))
+    }
+
+    fn transform_codeblock(&mut self, lang: Option<String>, text: String) -> String {
+        let code = {
+            if let Some(l) = lang {
+                if let Some(syntax) = self.syntax_set.find_syntax_by_token(&l) {
+                    let mut html_generator = ClassedHTMLGenerator::new_with_class_style(
+                        syntax,
+                        &self.syntax_set,
+                        ClassStyle::Spaced,
+                    );
+                    let mut is_err = false;
+                    for line in LinesWithEndings::from(&text) {
+                        if let Err(e) =
+                            html_generator.parse_html_for_line_which_includes_newline(line)
+                        {
+                            log::error!("Got error when generating html from code line: {e:?}");
+                            is_err = true;
+                            break;
+                        }
+                    }
+                    if is_err {
+                        self.sanitize_html(text)
+                    } else {
+                        html_generator.finalize()
+                    }
+                } else {
+                    self.sanitize_html(text)
+                }
+            } else {
+                self.sanitize_html(text)
+            }
+        };
+        format!("<pre><code>{code}</code></pre>")
+    }
+
+    fn peek_refurl(&mut self, slug: String, url: String) {
+        self.refs.insert(slug, url);
+    }
+
+    fn transform_reflink(&mut self, text: String, slug: String) -> String {
+        let url = self.refs.get(&slug);
+        assert!(url.is_some(), "Link reference {slug} not found");
+        self.transform_link(text, url.unwrap().clone())
+    }
+
+    fn transform_refurl(&mut self, _slug: String, _url: String) -> String {
+        "".to_string()
+    }
+
+    fn transform_list(&mut self, elements: Vec<String>) -> String {
+        let mut buffer = "<ul>\n".to_string();
+        buffer += elements.join("\n").as_str();
+        buffer += "\n</ul>";
+        buffer
+    }
+
+    fn transform_list_element(&mut self, element: String) -> String {
+        format!("<li>{}</li>", element)
+    }
+
+    fn transform_paragraph(&mut self, text: String) -> String {
+        format!("<p>{text}</p>")
+    }
+
+    fn transform_vertical_space(&mut self) -> String {
+        "<br/>".to_string()
     }
 }

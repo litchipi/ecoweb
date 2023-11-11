@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# export RUST_LOG="trace"
 BLOG_DATA_DIR=../blog
 
 clear

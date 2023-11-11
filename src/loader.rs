@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::cache::Cache;
 use crate::config::Configuration;
 use crate::errors::Errcode;
 use crate::post::SerieMetadata;
@@ -16,7 +15,6 @@ use self::storage::{StorageQuery, StorageTrait};
 
 #[allow(dead_code)]
 pub struct Loader {
-    pub cache: Arc<Cache>,
     storage: Storage,
 
     pub posts: Arc<post_loader::PostLoader>,
@@ -24,17 +22,16 @@ pub struct Loader {
 
 impl Loader {
     pub fn init(config: Arc<Configuration>) -> Result<Loader, Errcode> {
-        let cache = Arc::new(Cache::init(&config));
         let storage = Storage::init(&config)?;
         Ok(Loader {
-            posts: Arc::new(post_loader::PostLoader::init(
-                config,
-                cache.clone(),
-                storage.clone(),
-            )),
-            cache,
+            posts: Arc::new(post_loader::PostLoader::init(config, storage.clone())),
             storage,
         })
+    }
+
+    pub fn clean_exit(self) -> Result<(), Errcode> {
+        self.storage.clean_exit()?;
+        Ok(())
     }
 
     pub fn get_all_categories(&self) -> Result<Vec<String>, Errcode> {

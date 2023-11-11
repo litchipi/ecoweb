@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{cache::CacheConfig, errors::Errcode, loader::LoadingLimits, Args};
+use crate::{errors::Errcode, loader::LoadingLimits, Args};
 
 #[cfg(feature = "local_storage")]
 type StorageConfig = crate::loader::storage::local_storage::LocalStorageConfig;
@@ -27,7 +27,6 @@ pub struct Configuration {
     pub assets_dir: PathBuf,
 
     pub server_port: u16,
-    pub cache: CacheConfig,
     pub req_limit_per_sec: usize,
     pub code_theme: String,
     pub limits: LoadingLimits,

@@ -102,8 +102,6 @@ pub fn raise_error(err: Errcode, render: &Render) -> HttpResponse {
         e => format!("{e:?}"),
     };
     // TODO    Handle more error cases
-    let mut builder = match err {
-        _ => HttpResponse::InternalServerError(),
-    };
+    let mut builder = HttpResponse::InternalServerError();
     builder.body(render.render_error(errstr))
 }

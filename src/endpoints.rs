@@ -23,7 +23,7 @@ fn reply(
             }
             rep.body(html)
         }
-        Err(e) => raise_error(e, &rdr),
+        Err(e) => raise_error(e, rdr),
     }
 }
 
@@ -156,7 +156,7 @@ async fn get_post(id: web::Path<u64>, ldr: Data<Loader>, rdr: Data<Render>) -> H
 }
 
 async fn get_post_content(id: u64, ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
-    let Some((post, nav)) = ldr.posts.get(id)? else {
+    let Some(post) = ldr.posts.get(id)? else {
         return Err(Errcode::NotFound("post_id", id.to_string()));
     };
 
@@ -205,7 +205,7 @@ async fn get_post_content(id: u64, ldr: &Loader, rdr: &Render) -> Result<String,
         ctxt.insert("category_posts", &cat_posts);
     }
 
-    let rendered = rdr.render_post(post, nav, ctxt)?;
+    let rendered = rdr.render_post(post, ctxt)?;
     Ok(rendered)
 }
 

@@ -7,13 +7,11 @@ use clap::{arg, command, Parser};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-mod cache;
 mod config;
 mod endpoints;
 mod errors;
 mod loader;
 mod post;
-mod protection;
 mod render;
 
 use config::Configuration;
@@ -69,6 +67,11 @@ struct Args {
     #[cfg(feature = "local_storage")]
     #[arg(long = "posts", default_value = "posts.toml")]
     posts_registry: PathBuf,
+
+    /// Refresh the registry to find new post every X secs
+    #[cfg(feature = "local_storage")]
+    #[arg(long = "refresh-posts", default_value = "30")]
+    refresh_duration_secs: u64,
 }
 
 #[actix_web::main]
@@ -83,10 +86,11 @@ async fn main() -> std::io::Result<()> {
     let loader = Data::new(
         loader::Loader::init(config.clone()).expect("Error while initialization of Loader"),
     );
+    let loader_cpy = loader.clone();
     let render = Data::new(
         render::Render::init(config.clone()).expect("Error while initialization of Render"),
     );
-    std::fs::copy(&config.favicon, config.assets_dir.join("favicon.ico"))?;
+    std::fs::copy(&config.favicon, config.assets_dir.join("favicon"))?;
     fs_extra::copy_items(
         &config.add_assets,
         &config.assets_dir,
@@ -118,6 +122,15 @@ async fn main() -> std::io::Result<()> {
     .bind(("0.0.0.0", port))?
     .run();
 
-    log::info!("Started on http://0.0.0.0:{port}");
-    srv.await
+    log::info!("Serving content on http://0.0.0.0:{port}");
+    let res = srv.await;
+
+    log::info!("Stopping additionnal workers");
+    match Arc::into_inner(loader_cpy.into_inner()).map(|l| l.clean_exit()) {
+        Some(Ok(())) => log::debug!("Loader exitted clean"),
+        Some(Err(e)) => log::error!("Error during exit clean of the Loader: {e:?}"),
+        None => log::error!("Unable to get a single reference of loader after exit"),
+    }
+
+    res
 }

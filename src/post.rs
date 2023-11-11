@@ -1,11 +1,9 @@
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::cache::CacheElement;
 use crate::loader::PostFilter;
 use crate::render::context::SiteContext;
 
@@ -34,21 +32,10 @@ pub struct PostMetadata {
     pub modified: Option<i64>,
 
     #[serde(default)]
-    pub images_add_attribute: HashMap<String, String>,
-    #[serde(default)]
     pub tags: Vec<String>,
-
-    #[serde(skip_deserializing)]
-    pub content_checksum: u64,
 }
 
 impl PostMetadata {
-    pub fn compute_checksum(&mut self, content: &String) {
-        let mut s = DefaultHasher::new();
-        content.hash(&mut s);
-        self.content_checksum = s.finish();
-    }
-
     pub fn compute_id(&mut self) {
         if self.id == 0 {
             let mut s = DefaultHasher::new();
@@ -84,47 +71,11 @@ impl PostMetadata {
     }
 }
 
-impl CacheElement for PostMetadata {
-    fn len(&self) -> usize {
-        let mut sz = std::mem::size_of::<u64>();
-        sz += self.title.len();
-        if let Some(ref d) = self.description {
-            sz += d.len();
-        }
-        if let Some(ref c) = self.category {
-            sz += c.len();
-        }
-        if let Some(ref s) = self.serie {
-            sz += s.len();
-        }
-        if let Some(ref st) = self.serie_title {
-            sz += st.len();
-        }
-        sz += std::mem::size_of::<i64>();
-        if self.modified.is_some() {
-            sz += std::mem::size_of::<i64>();
-        }
-        for (key, val) in self.images_add_attribute.iter() {
-            sz += key.len();
-            sz += val.len();
-        }
-        for tag in self.tags.iter() {
-            sz += tag.len();
-        }
-        sz
-    }
-}
-
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Post {
     pub metadata: PostMetadata,
     pub content: String,
-}
-
-impl CacheElement for Post {
-    fn len(&self) -> usize {
-        self.metadata.len() + self.content.len()
-    }
+    pub post_nav: String,
 }
 
 impl PostMetadata {
@@ -144,7 +95,7 @@ impl PostMetadata {
         .as_str();
         *xml += format!("<guid isPermaLink=\"false\">{}</guid>", self.id).as_str();
 
-        let date: DateTime<Utc> = DateTime::from_utc(
+        let date: DateTime<Utc> = DateTime::from_naive_utc_and_offset(
             NaiveDateTime::from_timestamp_opt(self.date, 0).unwrap(),
             Utc,
         );
@@ -173,5 +124,5 @@ where
     <T as std::str::FromStr>::Err: std::fmt::Display,
 {
     let str_repr = String::deserialize(de)?;
-    Ok(str_repr.parse().map_err(serde::de::Error::custom)?)
+    str_repr.parse().map_err(serde::de::Error::custom)
 }

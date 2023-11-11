@@ -17,7 +17,6 @@ use self::context::SiteContext;
 
 pub mod context;
 pub mod markdown;
-pub mod nav;
 
 #[allow(dead_code)]
 fn error_message(reason: String) -> String {
@@ -125,14 +124,9 @@ impl Render {
         self.render(&self.post_list_template, &ctxt)
     }
 
-    pub fn render_post(
-        &self,
-        post: Post,
-        nav: String,
-        mut ctxt: Context,
-    ) -> Result<RenderedPage, Errcode> {
+    pub fn render_post(&self, post: Post, mut ctxt: Context) -> Result<RenderedPage, Errcode> {
         ctxt.insert("post_content", &post.content);
-        ctxt.insert("nav", &nav);
+        ctxt.insert("nav", &post.post_nav);
         self.render(&self.post_template, &ctxt)
     }
 
