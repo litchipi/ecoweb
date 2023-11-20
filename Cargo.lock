@@ -1429,7 +1429,7 @@ checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
 [[package]]
 name = "mdtrans"
 version = "0.1.0"
-source = "git+https://github.com/litchipi/mdtrans.git#298715483a2a1eb28ce4d4d8b20e3b486e225e77"
+source = "git+https://github.com/litchipi/mdtrans.git#dd2c329960732fd464d2b807864bb1cd8a75963b"
 dependencies = [
  "pest",
  "pest_derive",

@@ -234,4 +234,8 @@ impl MarkdownTransformer for MarkdownToHtml {
     fn transform_vertical_space(&mut self) -> String {
         "<br/>".to_string()
     }
+
+    fn transform_comment(&mut self, text: String) -> String {
+        format!("<!-- {text} -->")
+    }
 }
