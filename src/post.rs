@@ -33,6 +33,9 @@ pub struct PostMetadata {
 
     #[serde(default)]
     pub tags: Vec<String>,
+
+    #[serde(default)]
+    pub hidden: bool,
 }
 
 impl PostMetadata {

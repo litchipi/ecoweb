@@ -93,7 +93,7 @@ impl PostWatcher {
 
         #[cfg(feature = "hot_reloading")]
         {
-            cfg.refresh_duration = Duration::from_secs(3);
+            cfg.refresh_duration = Duration::from_secs(1);
         }
 
         let mut discovered = vec![];
@@ -104,6 +104,7 @@ impl PostWatcher {
             *series.write() = registry.series;
 
             for (slug, mut metadata) in registry.posts {
+                #[cfg(not(feature = "hot_reloading"))]
                 if discovered.contains(&slug) {
                     continue;
                 }
@@ -113,7 +114,12 @@ impl PostWatcher {
                 };
                 let post_markdown = std::fs::read_to_string(cfg.posts_dir.join(fpath))
                     .expect("Unable to read post {fpath:?}");
-                let (content, post_nav) = md_to_html.render(post_markdown, &metadata).unwrap();
+                let res = md_to_html.render(post_markdown, &metadata);
+                if let Err(e) = res {
+                    log::error!("Error while rendering post {slug}: {e:?}");
+                    continue;
+                }
+                let (content, post_nav) = res.unwrap();
                 metadata.compute_id();
                 let id = metadata.id;
                 let post = Post {
@@ -181,7 +187,7 @@ impl StorageTrait for LocalStorage {
             let posts = self.posts.read();
             let mut all_md = posts
                 .values()
-                .filter(|p| p.metadata.filter(&query.post_filter))
+                .filter(|p| !p.metadata.hidden && p.metadata.filter(&query.post_filter))
                 .map(|p| &p.metadata)
                 .collect::<Vec<&PostMetadata>>();
             all_md.sort_by(|a, b| {
