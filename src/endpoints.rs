@@ -44,6 +44,11 @@ async fn index(ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
     Ok(rendered)
 }
 
+#[get("/humans.txt")]
+async fn get_humans(rdr: Data<Render>) -> HttpResponse {
+    HttpResponse::Ok().append_header((header::CONTENT_TYPE, "text/plain")).body(rdr.site_context.humans_txt.clone())
+}
+
 #[get("/rss")]
 async fn get_rss_feed(ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
     let mut add_headers = HeaderMap::new();
@@ -217,6 +222,7 @@ pub fn configure(srv: &mut web::ServiceConfig) -> Result<(), Errcode> {
         .service(get_category)
         .service(get_rss_feed)
         .service(get_by_tag)
+        .service(get_humans)
         .default_service(web::route().to(not_found));
     Ok(())
 }

@@ -47,7 +47,7 @@ pub type TemplateEngine = tera_wrapper::TeraWrapper;
 pub struct Render {
     engine: TemplateEngine,
     pub base_context: Context,
-    site_context: SiteContext,
+    pub site_context: SiteContext,
 
     // Templates
     post_template: String,

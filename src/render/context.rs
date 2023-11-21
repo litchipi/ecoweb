@@ -17,6 +17,12 @@ pub struct SiteContext {
 
     pub social: HashMap<String, String>,
     pub webring: WebringContext,
+
+    #[serde(default)]
+    pub humans_txt: String,
+
+    blog_engine_src: Option<String>,
+    blog_src: Option<String>,
 }
 
 impl SiteContext {
@@ -28,9 +34,38 @@ impl SiteContext {
         }
     }
 
+    fn generate_humans_txt(&mut self) {
+        self.humans_txt = String::new();
+        self.humans_txt += "/* TEAM */\n";
+        self.humans_txt += format!("Author: {}\n", self.author_name).as_str();
+        for (sitename, social) in self.social.iter() {
+            if sitename == "email" {
+                let address = self.author_email.replace("@", " [at] ");
+                self.humans_txt += format!("Email: {}\n",
+                    address
+                ).as_str();
+            } else {
+                let mut s = sitename.chars();
+                let sitename_cap = match s.next() {
+                    None => String::new(),
+                    Some(f) => f.to_uppercase().collect::<String>() + s.as_str(),
+                };
+                self.humans_txt += format!("{}: {}\n", sitename_cap, social).as_str();
+            }
+        }
+        if let Some(ref blog_engine) = self.blog_engine_src {
+            self.humans_txt += format!("\nSoftware sources: {}\n", blog_engine).as_str();
+        }
+        if let Some(ref blog_src) = self.blog_src {
+            self.humans_txt += format!("Content sources: {}\n", blog_src).as_str();
+        }
+        self.humans_txt += "\nLanguage: English\n";
+    }
+
     pub fn from_cfg(cfg: &Configuration) -> Result<SiteContext, Errcode> {
         let strdata = std::fs::read_to_string(&cfg.site_config_file)?;
-        let ctxt: SiteContext = toml::from_str(&strdata)?;
+        let mut ctxt: SiteContext = toml::from_str(&strdata)?;
+        ctxt.generate_humans_txt();
         Ok(ctxt)
     }
 
