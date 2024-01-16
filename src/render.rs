@@ -58,6 +58,7 @@ pub struct Render {
 
 impl Render {
     pub fn init(config: Arc<Configuration>) -> Result<Render, Errcode> {
+        // TODO Once in a while, reload the template directory
         let mut tera =
             Tera::new(format!("{}/**/*.html", config.templates_dir.to_str().unwrap()).as_str())?;
         tera.register_filter("timestamp_convert", timestamp_to_date);

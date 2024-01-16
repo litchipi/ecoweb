@@ -7,6 +7,8 @@ use crate::loader::PostFilter;
 use crate::render::Render;
 use crate::{errors::Errcode, loader::Loader};
 
+// TODO robots.txt
+
 /// Wrapper around the response if we want to add specific headers
 fn reply(
     page: Result<String, Errcode>,

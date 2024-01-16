@@ -69,6 +69,7 @@ pub struct PostWatcher {
     thread: Arc<JoinHandle<()>>,
 }
 
+// TODO Once in a while check for checksums
 impl PostWatcher {
     pub fn init(
         cfg: &LocalStorageConfig,
