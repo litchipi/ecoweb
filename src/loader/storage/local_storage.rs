@@ -96,7 +96,7 @@ impl PostWatcher {
             cfg.refresh_duration = Duration::from_secs(1);
         }
 
-        let mut discovered = vec![];
+        let mut discovered: Vec<String> = vec![];
         loop {
             let tstart = std::time::Instant::now();
             let registry = load_registry(&cfg.post_registry).unwrap();
@@ -127,7 +127,10 @@ impl PostWatcher {
                     content,
                     post_nav,
                 };
-                discovered.push(slug);
+                #[cfg(not(feature = "hot_reloading"))]
+                {
+                    discovered.push(slug);
+                }
                 posts.write().insert(id, post);
             }
 
