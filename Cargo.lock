@@ -1428,9 +1428,9 @@ checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
 
 [[package]]
 name = "mdtrans"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22e8c23e70ea218e867820c00d0708975295ab0113bfbb42a57e766e50e6a73e"
+checksum = "53828953650035bbaabddf226159cad2f3b78b66469ed6e92717b6c476d51b0e"
 dependencies = [
  "pest",
  "pest_derive",
