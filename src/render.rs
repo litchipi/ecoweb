@@ -14,9 +14,6 @@ use crate::{
     post::{Post, PostMetadata, SerieMetadata},
 };
 
-use self::context::SiteContext;
-
-pub mod context;
 pub mod markdown;
 
 #[allow(dead_code)]
@@ -39,7 +36,7 @@ type RenderedPage = String;
 pub struct Render {
     pub engine: RwLock<Tera>,
     pub base_context: Context,
-    pub site_context: SiteContext,
+    config: Arc<Configuration>,
 
     // Templates
     post_template: String,
@@ -59,11 +56,9 @@ impl Render {
         setup_scripts(&config)?;
 
         let mut base_context = Context::new();
-        let site_context = context::SiteContext::from_cfg(config.as_ref())?;
-        base_context.insert("site", &site_context);
+        base_context.insert("site", &config.site_config);
 
         Ok(Render {
-            site_context,
             base_context,
             engine: RwLock::new(tera),
             post_template: config
@@ -86,6 +81,7 @@ impl Render {
                 .get("error")
                 .cloned()
                 .ok_or(Errcode::TemplateTypeNotBound("error"))?,
+            config,
         })
     }
 
@@ -135,9 +131,9 @@ impl Render {
 
     pub fn render_rss_feed(&self, recent: Vec<PostMetadata>) -> Result<RenderedPage, Errcode> {
         let mut xml = "<rss version=\"2.0\"><channel>".to_string();
-        self.site_context.to_rss_feed(&mut xml);
+        self.config.site_config.to_rss_feed(&mut xml);
         for post in recent {
-            post.to_rss_item(&self.site_context, &mut xml);
+            post.to_rss_item(&self.config.site_config, &mut xml);
         }
         xml += "</channel></rss>";
         Ok(xml)

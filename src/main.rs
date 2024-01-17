@@ -30,68 +30,24 @@ const MAX_AGE: usize = 60 * 60;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Server configuration file
-    #[arg(short, long, default_value = "config.toml")]
-    config_file: PathBuf,
-
-    /// Site configuration file
-    #[arg(short, long, default_value = "site.toml")]
-    site_config_file: PathBuf,
-
-    /// Path to the favicon
-    #[arg(short, long, default_value = "favicon.png")]
-    favicon: PathBuf,
-
-    /// Path to the directory containing SCSS code
-    #[arg(long = "scss", default_value = "scss")]
-    scss_dir: PathBuf,
-
-    /// Path to the directory containing the Javascript code
-    #[arg(long = "js", default_value = "js")]
-    scripts_dir: PathBuf,
-
-    /// Path to the directory containing the templates code
-    #[arg(long = "html", default_value = "html")]
-    templates_dir: PathBuf,
+    /// Path where the blog data is located
+    #[arg(short, long)]
+    data_dir: PathBuf,
 
     /// Path to the directory where to store the generated assets
     #[arg(long = "out", default_value = "out")]
     assets_dir: PathBuf,
-
-    /// Any additionnal path to add to the assets directory
-    #[arg(long = "add")]
-    add_assets: Vec<PathBuf>,
-
-    /// Path to the posts directory
-    #[cfg(feature = "local_storage")]
-    #[arg(long = "postsdir", default_value = "posts")]
-    posts_dir: PathBuf,
-
-    /// Path to the file containing posts definition
-    #[cfg(feature = "local_storage")]
-    #[arg(long = "posts", default_value = "posts.toml")]
-    posts_registry: PathBuf,
-
-    /// Refresh the registry to find new post every X secs
-    #[cfg(feature = "local_storage")]
-    #[arg(long = "refresh-posts", default_value = "30")]
-    refresh_duration_secs: u64,
-
-    #[arg(short, long = "webhook-secret", default_value = ".webhook_secret")]
-    webhook_secret_file: PathBuf
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let args = Args::parse();
-    let webhook_secret = Data::new(
-        WebhookSecret::load(&args.webhook_secret_file)
-    );
-
     let config = Configuration::from(args);
     config.validate().expect("Invalid configuration");
     config.init_logging();
     setup::setup_files(&config).expect("Unable to setup files");
+    let webhook_secret = Data::new(WebhookSecret::init());
+
 
     let config = Arc::new(config);
     let port = config.server_port;

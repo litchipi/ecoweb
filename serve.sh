@@ -1,18 +1,10 @@
 #!/bin/sh
 
 # export RUST_LOG="trace"
-BLOG_DATA_DIR=../blog
+BLOG_DATA_DIR=$(realpath ../blog)
 
+export GIT_WEBHOOK_SECRET="test"
 clear
-cargo run --features "dev,minify" -- \
-  --config-file $BLOG_DATA_DIR/config.toml \
-  --site-config-file $BLOG_DATA_DIR/site.toml \
-  --favicon $BLOG_DATA_DIR/favicon.png \
-  --scss $BLOG_DATA_DIR/scss \
-  --js $BLOG_DATA_DIR/scripts \
-  --html $BLOG_DATA_DIR/templates \
-  --out ./target/assets \
-  --add $BLOG_DATA_DIR/images \
-  --postsdir $BLOG_DATA_DIR/posts \
-  --posts $BLOG_DATA_DIR/registry.toml \
-  --webhook-secret ./.webhook-secret-test
+cargo run --features "dev" -- \
+  --data-dir "$BLOG_DATA_DIR" \
+  --out ./target/assets

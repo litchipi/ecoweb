@@ -4,8 +4,8 @@ use std::hash::{Hash, Hasher};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::config::SiteConfig;
 use crate::loader::PostFilter;
-use crate::render::context::SiteContext;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SerieMetadata {
@@ -82,18 +82,18 @@ pub struct Post {
 }
 
 impl PostMetadata {
-    pub fn to_rss_item(&self, ctxt: &SiteContext, xml: &mut String) {
+    pub fn to_rss_item(&self, cfg: &SiteConfig, xml: &mut String) {
         *xml += "<item>";
         *xml += format!("<title>{}</title>", self.title).as_str();
         *xml += format!(
             "<link type=\"text/html\" title=\"{}\">{}/post/{}</link>",
-            self.title, ctxt.base_url, self.id,
+            self.title, cfg.base_url, self.id,
         )
         .as_str();
 
         *xml += format!(
             "<author>{} ({})</author>",
-            ctxt.author_email, ctxt.author_name
+            cfg.author_email, cfg.author_name
         )
         .as_str();
         *xml += format!("<guid isPermaLink=\"false\">{}</guid>", self.id).as_str();

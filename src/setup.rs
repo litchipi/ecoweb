@@ -7,7 +7,7 @@ use crate::render::Render;
 pub fn setup_files(config: &Configuration) -> Result<(), Errcode> {
     std::fs::create_dir_all(&config.assets_dir)?;
 
-    std::fs::copy(&config.favicon, config.assets_dir.join("favicon"))?;
+    std::fs::copy(&config.site_config.favicon, config.assets_dir.join("favicon"))?;
     fs_extra::copy_items(
         &config.add_assets,
         &config.assets_dir,

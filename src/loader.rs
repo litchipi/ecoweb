@@ -63,7 +63,7 @@ pub enum PostFilter {
     ContainsTag(String),
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LoadingLimits {
     recent_posts: usize,
     categories: usize,

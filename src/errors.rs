@@ -45,6 +45,18 @@ pub enum Errcode {
     #[error("Local storage error")]
     StorageError(#[from] crate::loader::storage::local_storage::LocalStorageError),
 
+    #[error("Cannot perform HTTP request")]
+    FailedHttpRequest(#[from] awc::error::SendRequestError),
+
+    #[error("Cannot get HTTP reply body")]
+    RequestPayloadError(#[from] awc::error::PayloadError),
+
+    #[error("Cannot read ZIP file")]
+    ZipRead(#[from] zip::result::ZipError),
+
+    #[error("Got error status code")]
+    ErrorStatusCode(actix_web::http::StatusCode),
+
     #[cfg(feature = "css_minify")]
     #[error("Error while minifying CSS")]
     CssMinifyingError(#[from] lightningcss::error::Error<lightningcss::error::MinifyErrorKind>),

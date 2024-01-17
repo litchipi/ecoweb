@@ -2,11 +2,13 @@ use actix_web::http::header::{self, HeaderMap, HeaderValue};
 use actix_web::web::{Data, Path, ServiceConfig};
 use actix_web::{get, HttpResponse};
 
+use crate::config::Configuration;
 use crate::errors::raise_error;
 use crate::loader::PostFilter;
 use crate::render::Render;
 use crate::{errors::Errcode, loader::Loader};
 
+#[cfg(feature = "githook-update")]
 pub mod githook;
 
 // TODO robots.txt
@@ -49,10 +51,10 @@ async fn index(ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
 }
 
 #[get("/humans.txt")]
-async fn get_humans(rdr: Data<Render>) -> HttpResponse {
+async fn get_humans(cfg: Data<Configuration>) -> HttpResponse {
     HttpResponse::Ok()
         .append_header((header::CONTENT_TYPE, "text/plain"))
-        .body(rdr.site_context.humans_txt.clone())
+        .body(cfg.site_config.humans_txt.clone())
 }
 
 #[get("/rss")]
@@ -225,7 +227,10 @@ pub fn configure(srv: &mut ServiceConfig) -> Result<(), Errcode> {
         .service(get_rss_feed)
         .service(get_by_tag)
         .service(get_humans)
-        .service(githook::git_webhook)
         .default_service(actix_web::web::route().to(not_found));
+
+    #[cfg(feature = "githook-update")]
+    srv.service(githook::git_webhook);
+
     Ok(())
 }

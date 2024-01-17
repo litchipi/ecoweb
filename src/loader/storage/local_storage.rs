@@ -2,7 +2,6 @@ use parking_lot::RwLock;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 use thiserror::Error;
 
 use serde::{Deserialize, Serialize};
@@ -11,7 +10,6 @@ use crate::config::Configuration;
 use crate::errors::Errcode;
 use crate::post::{Post, PostMetadata, SerieMetadata};
 use crate::render::markdown::MarkdownRenderer;
-use crate::Args;
 
 use super::{StorageQuery, StorageTrait};
 
@@ -27,24 +25,20 @@ pub enum LocalStorageError {
     HtmlFromMarkdown(#[from] mdtrans::Errcode),
 }
 
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct LocalStorageConfig {
-    pub refresh_duration: Duration,
     pub posts_dir: PathBuf,
     pub post_registry: PathBuf,
 }
 
-impl From<&Args> for LocalStorageConfig {
-    fn from(args: &Args) -> Self {
+impl LocalStorageConfig {
+    pub fn init(root: &PathBuf, cfg: &Configuration) -> Self {
         LocalStorageConfig {
-            refresh_duration: Duration::from_secs(args.refresh_duration_secs),
-            post_registry: args.posts_registry.clone(),
-            posts_dir: args.posts_dir.clone(),
+            post_registry: root.join(&cfg.posts_registry),
+            posts_dir: root.join(&cfg.posts_dir),
         }
     }
-}
 
-impl LocalStorageConfig {
     pub fn validate(&self) -> Result<(), Errcode> {
         if !self.posts_dir.exists() {
             return Err(Errcode::PathDoesntExist(
