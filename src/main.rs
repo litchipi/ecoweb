@@ -120,7 +120,7 @@ async fn main() -> std::io::Result<()> {
                     .add((header::AGE, "0")),
             );
 
-        // #[cfg(feature = "hot_reloading")]
+        #[cfg(feature = "hot_reloading")]
         let app = {
             let loader = loader.clone();
             let render = render.clone();
