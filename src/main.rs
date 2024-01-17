@@ -18,6 +18,8 @@ mod setup;
 
 use config::Configuration;
 
+use crate::endpoints::githook::WebhookSecret;
+
 #[cfg(feature = "no_cache")]
 const MAX_AGE: usize = 0;
 
@@ -74,6 +76,9 @@ struct Args {
     #[cfg(feature = "local_storage")]
     #[arg(long = "refresh-posts", default_value = "30")]
     refresh_duration_secs: u64,
+
+    #[arg(short, long = "webook-secret", default_value = ".webhook_secret")]
+    webhook_secret_file: PathBuf
 }
 
 #[actix_web::main]
@@ -93,6 +98,7 @@ async fn main() -> std::io::Result<()> {
     let render = Data::new(
         render::Render::init(config.clone()).expect("Error while initialization of Render"),
     );
+    let webhook_secret = Data::new(WebhookSecret::load(&config.webhook_secret_file));
     let srv = HttpServer::new(move || {
         let app = App::new()
             .wrap(Compress::default())
@@ -128,6 +134,7 @@ async fn main() -> std::io::Result<()> {
         app.app_data(render.clone())
             .app_data(loader.clone())
             .app_data(Data::from(config.clone()))
+            .app_data(webhook_secret.clone())
             .configure(|srv| endpoints::configure(srv).expect("Unable to configure endpoints"))
             .service(Files::new("/", config.assets_dir.canonicalize().unwrap()))
     })

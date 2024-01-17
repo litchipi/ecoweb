@@ -25,6 +25,8 @@ pub struct Configuration {
     pub storage_cfg: StorageConfig,
     #[serde(skip)]
     pub assets_dir: PathBuf,
+    #[serde(skip)]
+    pub webhook_secret_file: PathBuf,
 
     pub server_port: u16,
     pub req_limit_per_sec: usize,

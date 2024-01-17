@@ -7,7 +7,7 @@ use crate::loader::PostFilter;
 use crate::render::Render;
 use crate::{errors::Errcode, loader::Loader};
 
-mod githook;
+pub mod githook;
 
 // TODO robots.txt
 
