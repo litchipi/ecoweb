@@ -1,4 +1,5 @@
 use actix_files::Files;
+use actix_web::dev::Service;
 use actix_web::http::header;
 use actix_web::middleware::{Compress, DefaultHeaders, Logger};
 use actix_web::web::Data;
@@ -13,6 +14,7 @@ mod errors;
 mod loader;
 mod post;
 mod render;
+mod setup;
 
 use config::Configuration;
 
@@ -78,8 +80,9 @@ struct Args {
 async fn main() -> std::io::Result<()> {
     let config = Configuration::from(Args::parse());
     config.validate().expect("Invalid configuration");
-    std::fs::create_dir_all(&config.assets_dir).expect("Unable to create assets dir");
     config.init_logging();
+    setup::setup_files(&config).expect("Unable to setup files");
+
     let config = Arc::new(config);
     let port = config.server_port;
 
@@ -90,15 +93,8 @@ async fn main() -> std::io::Result<()> {
     let render = Data::new(
         render::Render::init(config.clone()).expect("Error while initialization of Render"),
     );
-    std::fs::copy(&config.favicon, config.assets_dir.join("favicon"))?;
-    fs_extra::copy_items(
-        &config.add_assets,
-        &config.assets_dir,
-        &fs_extra::dir::CopyOptions::new().overwrite(true),
-    )
-    .expect("Unable to copy additionnal assets");
     let srv = HttpServer::new(move || {
-        App::new()
+        let app = App::new()
             .wrap(Compress::default())
             .wrap(Logger::new("%s | %r (%bb in %Ts) from %a"))
             .wrap(
@@ -112,10 +108,26 @@ async fn main() -> std::io::Result<()> {
                     ))
                     .add((header::CACHE_CONTROL, format!("max-age={MAX_AGE}")))
                     .add((header::AGE, "0")),
-            )
-            // .wrap(protection::ProtectionMiddlewareBuilder::new(&config))
-            .app_data(render.clone())
+            );
+
+        // #[cfg(feature = "hot_reloading")]
+        let app = {
+            let loader = loader.clone();
+            let render = render.clone();
+            let config = config.clone();
+            app.wrap_fn(move |req, srv| {
+                let path = req.path();
+                if path.starts_with("/post/") || (path == "/") || (path == "/allposts") {
+                    setup::reload(&loader, &render, &config).expect("Unable to reload data");
+                }
+                srv.call(req)
+            })
+        };
+        // .wrap(protection::ProtectionMiddlewareBuilder::new(&config))
+
+        app.app_data(render.clone())
             .app_data(loader.clone())
+            .app_data(Data::from(config.clone()))
             .configure(|srv| endpoints::configure(srv).expect("Unable to configure endpoints"))
             .service(Files::new("/", config.assets_dir.canonicalize().unwrap()))
     })

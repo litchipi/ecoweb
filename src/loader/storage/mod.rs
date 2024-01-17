@@ -23,6 +23,7 @@ pub trait StorageTrait {
     fn query_post_metadata(&self, query: StorageQuery) -> Result<Vec<PostMetadata>, Self::Error>;
     fn query_serie(&self, query: StorageQuery) -> Result<Vec<SerieMetadata>, Self::Error>;
     fn query_category(&self, query: StorageQuery) -> Result<Vec<String>, Self::Error>;
+    fn reload(&self) -> Result<(), Self::Error>;
 }
 
 #[derive(Debug)]

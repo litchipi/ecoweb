@@ -40,10 +40,8 @@ impl SiteContext {
         self.humans_txt += format!("Author: {}\n", self.author_name).as_str();
         for (sitename, social) in self.social.iter() {
             if sitename == "email" {
-                let address = self.author_email.replace("@", " [at] ");
-                self.humans_txt += format!("Email: {}\n",
-                    address
-                ).as_str();
+                let address = self.author_email.replace('@', " [at] ");
+                self.humans_txt += format!("Email: {}\n", address).as_str();
             } else {
                 let mut s = sitename.chars();
                 let sitename_cap = match s.next() {

@@ -1,11 +1,13 @@
 use actix_web::http::header::{self, HeaderMap, HeaderValue};
-use actix_web::web::{self, Data};
+use actix_web::web::{Data, Path, ServiceConfig};
 use actix_web::{get, HttpResponse};
 
 use crate::errors::raise_error;
 use crate::loader::PostFilter;
 use crate::render::Render;
 use crate::{errors::Errcode, loader::Loader};
+
+mod githook;
 
 // TODO robots.txt
 
@@ -48,7 +50,9 @@ async fn index(ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
 
 #[get("/humans.txt")]
 async fn get_humans(rdr: Data<Render>) -> HttpResponse {
-    HttpResponse::Ok().append_header((header::CONTENT_TYPE, "text/plain")).body(rdr.site_context.humans_txt.clone())
+    HttpResponse::Ok()
+        .append_header((header::CONTENT_TYPE, "text/plain"))
+        .body(rdr.site_context.humans_txt.clone())
 }
 
 #[get("/rss")]
@@ -79,11 +83,7 @@ async fn all_posts(ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
 }
 
 #[get("/category/{name}")]
-async fn get_category(
-    args: web::Path<String>,
-    ldr: Data<Loader>,
-    rdr: Data<Render>,
-) -> HttpResponse {
+async fn get_category(args: Path<String>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
     reply(
         list_by_category(args.into_inner(), &ldr, &rdr).await,
         &rdr,
@@ -94,7 +94,7 @@ async fn get_category(
 async fn list_by_category(name: String, ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
     let all_posts = ldr.posts.list_posts_category(name, vec![])?;
 
-    let rendered = if let Some(fpost) = all_posts.get(0) {
+    let rendered = if let Some(fpost) = all_posts.first() {
         let category = fpost.category.clone().unwrap();
         let mut ctxt = rdr.base_context.clone();
         ctxt.insert("filter", &category);
@@ -110,7 +110,7 @@ async fn list_by_category(name: String, ldr: &Loader, rdr: &Render) -> Result<St
 }
 
 #[get("/serie/{slug}")]
-async fn get_serie(slug: web::Path<String>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
+async fn get_serie(slug: Path<String>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
     reply(
         list_by_serie(slug.into_inner(), &ldr, &rdr).await,
         &rdr,
@@ -136,7 +136,7 @@ async fn list_by_serie(slug: String, ldr: &Loader, rdr: &Render) -> Result<Strin
 }
 
 #[get("/tag/{tag}")]
-async fn get_by_tag(args: web::Path<String>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
+async fn get_by_tag(args: Path<String>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
     reply(list_by_tag(args.into_inner(), &ldr, &rdr).await, &rdr, None)
 }
 
@@ -154,7 +154,7 @@ async fn list_by_tag(tag: String, ldr: &Loader, rdr: &Render) -> Result<String, 
 }
 
 #[get("/post/{id}")]
-async fn get_post(id: web::Path<u64>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
+async fn get_post(id: Path<u64>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
     reply(
         get_post_content(id.into_inner(), &ldr, &rdr).await,
         &rdr,
@@ -216,7 +216,7 @@ async fn get_post_content(id: u64, ldr: &Loader, rdr: &Render) -> Result<String,
     Ok(rendered)
 }
 
-pub fn configure(srv: &mut web::ServiceConfig) -> Result<(), Errcode> {
+pub fn configure(srv: &mut ServiceConfig) -> Result<(), Errcode> {
     srv.service(get_index)
         .service(get_post)
         .service(get_all_posts)
@@ -225,6 +225,7 @@ pub fn configure(srv: &mut web::ServiceConfig) -> Result<(), Errcode> {
         .service(get_rss_feed)
         .service(get_by_tag)
         .service(get_humans)
-        .default_service(web::route().to(not_found));
+        .service(githook::git_webhook)
+        .default_service(actix_web::web::route().to(not_found));
     Ok(())
 }

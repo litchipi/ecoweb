@@ -1,4 +1,3 @@
-use actix_web::rt::task::JoinHandle;
 use parking_lot::RwLock;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
@@ -63,83 +62,6 @@ impl LocalStorageConfig {
     }
 }
 
-#[allow(dead_code)]
-#[derive(Clone)]
-pub struct PostWatcher {
-    thread: Arc<JoinHandle<()>>,
-}
-
-// TODO Once in a while check for checksums
-impl PostWatcher {
-    pub fn init(
-        cfg: &LocalStorageConfig,
-        posts: PostsMap,
-        series: SeriesList,
-    ) -> Result<PostWatcher, LocalStorageError> {
-        let thread = tokio::spawn(Self::serve(cfg.clone(), posts, series));
-        Ok(PostWatcher {
-            thread: Arc::new(thread),
-        })
-    }
-
-    pub fn stop(&self) -> Result<(), LocalStorageError> {
-        // TODO    Find a way to stop cleanly the loop
-        self.thread.abort();
-        Ok(())
-    }
-
-    #[allow(unused_mut)]
-    async fn serve(mut cfg: LocalStorageConfig, posts: PostsMap, series: SeriesList) {
-        let md_to_html = MarkdownRenderer::init();
-
-        #[cfg(feature = "hot_reloading")]
-        {
-            cfg.refresh_duration = Duration::from_secs(1);
-        }
-
-        let mut discovered: Vec<String> = vec![];
-        loop {
-            let tstart = std::time::Instant::now();
-            let registry = load_registry(&cfg.post_registry).unwrap();
-
-            *series.write() = registry.series;
-
-            for (slug, mut metadata) in registry.posts {
-                #[cfg(not(feature = "hot_reloading"))]
-                if discovered.contains(&slug) {
-                    continue;
-                }
-                let Some(fpath) = registry.post_contents_path.get(&slug) else {
-                    log::warn!("Unable to find blog post {slug} in post_contents_path list");
-                    continue;
-                };
-                let post_markdown = std::fs::read_to_string(cfg.posts_dir.join(fpath))
-                    .expect("Unable to read post {fpath:?}");
-                let res = md_to_html.render(post_markdown, &metadata);
-                if let Err(e) = res {
-                    log::error!("Error while rendering post {slug}: {e:?}");
-                    continue;
-                }
-                let (content, post_nav) = res.unwrap();
-                metadata.compute_id();
-                let id = metadata.id;
-                let post = Post {
-                    metadata,
-                    content,
-                    post_nav,
-                };
-                #[cfg(not(feature = "hot_reloading"))]
-                {
-                    discovered.push(slug);
-                }
-                posts.write().insert(id, post);
-            }
-
-            tokio::time::sleep(cfg.refresh_duration.saturating_sub(tstart.elapsed())).await
-        }
-    }
-}
-
 #[derive(Deserialize, Clone, Debug)]
 pub struct PostsRegistry {
     series: HashMap<String, SerieMetadata>,
@@ -152,7 +74,7 @@ type SeriesList = Arc<RwLock<HashMap<String, SerieMetadata>>>;
 
 #[derive(Clone)]
 pub struct LocalStorage {
-    post_watcher: PostWatcher,
+    config: LocalStorageConfig,
     posts: PostsMap,
     series: SeriesList,
 }
@@ -173,16 +95,18 @@ impl StorageTrait for LocalStorage {
         let storage_config = config.storage_cfg.clone();
         let posts = Arc::new(RwLock::new(BTreeMap::new()));
         let series = Arc::new(RwLock::new(HashMap::new()));
-        let post_watcher = PostWatcher::init(&storage_config, posts.clone(), series.clone())?;
-        Ok(LocalStorage {
-            post_watcher,
+        // let post_watcher = PostWatcher::init(&storage_config, posts.clone(), series.clone())?;
+        let storage = LocalStorage {
+            config: storage_config,
             posts,
             series,
-        })
+        };
+        storage.reload()?;
+        Ok(storage)
     }
 
     fn clean_exit(self) -> Result<(), Errcode> {
-        self.post_watcher.stop()?;
+        // self.post_watcher.stop()?;
         Ok(())
     }
 
@@ -298,5 +222,42 @@ impl StorageTrait for LocalStorage {
 
     fn get_post_content(&self, id: u64) -> Result<Option<Post>, Self::Error> {
         Ok(self.posts.read().get(&id).cloned())
+    }
+
+    fn reload(&self) -> Result<(), Self::Error> {
+        let registry = load_registry(&self.config.post_registry)?;
+
+        let mut series = self.series.write();
+        let mut posts = self.posts.write();
+        *series = registry.series;
+        *posts = BTreeMap::new();
+
+        let md_to_html = MarkdownRenderer::init();
+
+        for (slug, mut metadata) in registry.posts {
+            let Some(fpath) = registry.post_contents_path.get(&slug) else {
+                log::warn!("Unable to find blog post {slug} in post_contents_path list");
+                continue;
+            };
+
+            let post_fname = self.config.posts_dir.join(fpath);
+            let post_markdown = std::fs::read_to_string(&post_fname)?;
+            let res = md_to_html.render(post_markdown, &metadata);
+            if let Err(e) = res {
+                log::error!("Error while rendering post {slug}: {e:?}");
+                continue;
+            }
+
+            let (content, post_nav) = res.unwrap();
+            metadata.compute_id();
+            let id = metadata.id;
+            let post = Post {
+                metadata,
+                content,
+                post_nav,
+            };
+            posts.insert(id, post);
+        }
+        Ok(())
     }
 }

@@ -1,3 +1,4 @@
+use parking_lot::RwLock;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -35,17 +36,8 @@ fn error_message(reason: String) -> String {
 
 type RenderedPage = String;
 
-#[cfg(feature = "hot_reloading")]
-mod tera_wrapper;
-
-#[cfg(not(feature = "hot_reloading"))]
-pub type TemplateEngine = Tera;
-
-#[cfg(feature = "hot_reloading")]
-pub type TemplateEngine = tera_wrapper::TeraWrapper;
-
 pub struct Render {
-    engine: TemplateEngine,
+    pub engine: RwLock<Tera>,
     pub base_context: Context,
     pub site_context: SiteContext,
 
@@ -66,9 +58,6 @@ impl Render {
         setup_css(&config)?;
         setup_scripts(&config)?;
 
-        #[cfg(feature = "hot_reloading")]
-        let tera = tera_wrapper::TeraWrapper::new(config.clone());
-
         let mut base_context = Context::new();
         let site_context = context::SiteContext::from_cfg(config.as_ref())?;
         base_context.insert("site", &site_context);
@@ -76,7 +65,7 @@ impl Render {
         Ok(Render {
             site_context,
             base_context,
-            engine: tera,
+            engine: RwLock::new(tera),
             post_template: config
                 .templates
                 .get("post")
@@ -157,7 +146,7 @@ impl Render {
     pub fn render_error<T: ToString>(&self, content: T) -> RenderedPage {
         let mut ctxt = self.base_context.clone();
         ctxt.insert("error", &content.to_string());
-        match self.engine.render(&self.error_template, &ctxt) {
+        match self.engine.read().render(&self.error_template, &ctxt) {
             Ok(r) => r,
             Err(e) => {
                 let mut errstr = format!("Error occured: {}<br/>", content.to_string());
@@ -170,7 +159,7 @@ impl Render {
 
     pub fn render(&self, template: &str, ctxt: &Context) -> Result<RenderedPage, Errcode> {
         #[allow(unused_mut)]
-        let mut rendered = self.engine.render(template, ctxt)?;
+        let mut rendered = self.engine.read().render(template, ctxt)?;
 
         #[cfg(feature = "html_minify")]
         let rendered = {

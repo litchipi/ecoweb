@@ -15,8 +15,7 @@ use self::storage::{StorageQuery, StorageTrait};
 
 #[allow(dead_code)]
 pub struct Loader {
-    storage: Storage,
-
+    pub storage: Storage,
     pub posts: Arc<post_loader::PostLoader>,
 }
 
