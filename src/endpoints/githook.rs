@@ -15,6 +15,7 @@ pub struct WebhookSecret(Vec<u8>);
 impl WebhookSecret {
     pub fn load(f: &PathBuf) -> WebhookSecret {
         let token = std::fs::read(f).expect("Unable to read webhook secret file");
+        println!("{token:?}");
         WebhookSecret(token)
     }
 

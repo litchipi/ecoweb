@@ -77,13 +77,18 @@ struct Args {
     #[arg(long = "refresh-posts", default_value = "30")]
     refresh_duration_secs: u64,
 
-    #[arg(short, long = "webook-secret", default_value = ".webhook_secret")]
+    #[arg(short, long = "webhook-secret", default_value = ".webhook_secret")]
     webhook_secret_file: PathBuf
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let config = Configuration::from(Args::parse());
+    let args = Args::parse();
+    let webhook_secret = Data::new(
+        WebhookSecret::load(&args.webhook_secret_file)
+    );
+
+    let config = Configuration::from(args);
     config.validate().expect("Invalid configuration");
     config.init_logging();
     setup::setup_files(&config).expect("Unable to setup files");
@@ -98,7 +103,6 @@ async fn main() -> std::io::Result<()> {
     let render = Data::new(
         render::Render::init(config.clone()).expect("Error while initialization of Render"),
     );
-    let webhook_secret = Data::new(WebhookSecret::load(&config.webhook_secret_file));
     let srv = HttpServer::new(move || {
         let app = App::new()
             .wrap(Compress::default())

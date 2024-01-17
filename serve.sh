@@ -14,4 +14,5 @@ cargo run --features "dev,minify" -- \
   --out ./target/assets \
   --add $BLOG_DATA_DIR/images \
   --postsdir $BLOG_DATA_DIR/posts \
-  --posts $BLOG_DATA_DIR/registry.toml
+  --posts $BLOG_DATA_DIR/registry.toml \
+  --webhook-secret ./.webhook-secret-test
