@@ -13,16 +13,16 @@ use crate::render::Render;
 use crate::setup::reload;
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct WebhookConfig {
+pub struct GithookConfig {
     zipfile_fetch_url: String,
 }
 
-pub struct WebhookSecret(Hmac<Sha256>);
-impl WebhookSecret {
-    pub fn init() -> WebhookSecret {
+pub struct GithookSecret(Hmac<Sha256>);
+impl GithookSecret {
+    pub fn init() -> GithookSecret {
         let secret = std::env::var("GIT_WEBHOOK_SECRET")
             .expect("Unable to get webhook secret from GIT_WEBHOOK_SECRET env var");
-        WebhookSecret(
+        GithookSecret(
             hmac::Hmac::new_from_slice(secret.as_bytes()).expect("Unable to create HMAC generator"),
         )
     }
@@ -38,7 +38,7 @@ impl WebhookSecret {
 async fn git_webhook(
     req: HttpRequest,
     data: Bytes,
-    secret: Data<WebhookSecret>,
+    secret: Data<GithookSecret>,
     ldr: Data<Loader>,
     rdr: Data<Render>,
     cfg: Data<Configuration>,

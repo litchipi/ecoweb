@@ -1,6 +1,6 @@
 use parking_lot::RwLock;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -32,7 +32,7 @@ pub struct LocalStorageConfig {
 }
 
 impl LocalStorageConfig {
-    pub fn init(root: &PathBuf, cfg: &Configuration) -> Self {
+    pub fn init(root: &Path, cfg: &Configuration) -> Self {
         LocalStorageConfig {
             post_registry: root.join(&cfg.posts_registry),
             posts_dir: root.join(&cfg.posts_dir),
@@ -236,7 +236,7 @@ impl StorageTrait for LocalStorage {
 
             let post_fname = self.config.posts_dir.join(fpath);
             let post_markdown = std::fs::read_to_string(&post_fname)?;
-            let res = md_to_html.render(post_markdown, &metadata);
+            let res = md_to_html.render(post_markdown);
             if let Err(e) = res {
                 log::error!("Error while rendering post {slug}: {e:?}");
                 continue;

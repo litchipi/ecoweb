@@ -7,20 +7,19 @@ use clap::{arg, command, Parser};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-#[cfg(feature="hot_reloading")]
+#[cfg(feature = "hot_reloading")]
 use actix_web::dev::Service;
 
 mod config;
 mod endpoints;
 mod errors;
+mod extensions;
 mod loader;
 mod post;
 mod render;
 mod setup;
 
 use config::Configuration;
-
-use crate::endpoints::githook::WebhookSecret;
 
 #[cfg(feature = "no_cache")]
 const MAX_AGE: usize = 0;
@@ -48,8 +47,6 @@ async fn main() -> std::io::Result<()> {
     config.validate().expect("Invalid configuration");
     config.init_logging();
     setup::setup_files(&config).expect("Unable to setup files");
-    let webhook_secret = Data::new(WebhookSecret::init());
-
 
     let config = Arc::new(config);
     let port = config.server_port;
@@ -61,6 +58,8 @@ async fn main() -> std::io::Result<()> {
     let render = Data::new(
         render::Render::init(config.clone()).expect("Error while initialization of Render"),
     );
+
+    extensions::announce();
     let srv = HttpServer::new(move || {
         let app = App::new()
             .wrap(Compress::default())
@@ -85,7 +84,11 @@ async fn main() -> std::io::Result<()> {
             let config = config.clone();
             app.wrap_fn(move |req, srv| {
                 let path = req.path();
-                if path.starts_with("/post/") || (path == "/") || (path == "/allposts") {
+                if path.starts_with("/post/")
+                    || (path == "/")
+                    || (path == "/allposts")
+                    || (path == "/hireme")
+                {
                     setup::reload(&loader, &render, &config).expect("Unable to reload data");
                 }
                 srv.call(req)
@@ -96,7 +99,6 @@ async fn main() -> std::io::Result<()> {
         app.app_data(render.clone())
             .app_data(loader.clone())
             .app_data(Data::from(config.clone()))
-            .app_data(webhook_secret.clone())
             .configure(|srv| endpoints::configure(srv).expect("Unable to configure endpoints"))
             .service(Files::new("/", config.assets_dir.canonicalize().unwrap()))
     })

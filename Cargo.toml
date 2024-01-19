@@ -38,6 +38,7 @@ sha2 = "0.10.8"
 hex = "0.4.3"
 awc = { version = "3.3.0", features = ["rustls"] }
 zip = "0.6.6"
+paste = "1.0.14"
 
 [dependencies.syntect]
 version = "5.1.0"
@@ -45,17 +46,25 @@ features = [ "html", "regex-onig", "default-themes", "default-syntaxes" ]
 default-features = false
 
 [features]
-default = ["local_storage", "githook-update"] # TODO  For dev, remove after
+# Bundles
+default = ["local_storage"]
 dev = ["local_storage", "hot_reloading", "no_cache"]
 
-githook-update = []
-local_storage = []
+# Extensions
+githook = []
+rss = []
+humans-txt = []
+hireme = []
+webring = []
 
+# Minification
 minify = ["css_minify", "html_minify", "js_minify"]
 css_minify = ["lightningcss"]
 html_minify = ["minify-html-onepass"]
 js_minify = ["minify-js"]
 
+# Storage
+local_storage = []
 hot_reloading = []
 no_cache = []
 

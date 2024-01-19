@@ -31,18 +31,30 @@ fn error_message(reason: String) -> String {
     )
 }
 
-type RenderedPage = String;
+fn get_template_from_cfg(cfg: &Arc<Configuration>, name: &'static str) -> Result<String, Errcode> {
+    cfg.templates
+        .get(name)
+        .cloned()
+        .ok_or(Errcode::TemplateTypeNotBound(name))
+}
+
+pub type RenderedPage = String;
 
 pub struct Render {
     pub engine: RwLock<Tera>,
     pub base_context: Context,
-    config: Arc<Configuration>,
 
     // Templates
     post_template: String,
     post_list_template: String,
     index_template: String,
     error_template: String,
+
+    #[cfg(feature = "hireme")]
+    pub hireme_template: String,
+
+    #[allow(unused_variables)]
+    pub config: Arc<Configuration>,
 }
 
 impl Render {
@@ -61,26 +73,14 @@ impl Render {
         Ok(Render {
             base_context,
             engine: RwLock::new(tera),
-            post_template: config
-                .templates
-                .get("post")
-                .cloned()
-                .ok_or(Errcode::TemplateTypeNotBound("post"))?,
-            post_list_template: config
-                .templates
-                .get("post_list")
-                .cloned()
-                .ok_or(Errcode::TemplateTypeNotBound("post_list"))?,
-            index_template: config
-                .templates
-                .get("index")
-                .cloned()
-                .ok_or(Errcode::TemplateTypeNotBound("index"))?,
-            error_template: config
-                .templates
-                .get("error")
-                .cloned()
-                .ok_or(Errcode::TemplateTypeNotBound("error"))?,
+            post_template: get_template_from_cfg(&config, "post")?,
+            post_list_template: get_template_from_cfg(&config, "post_list")?,
+            index_template: get_template_from_cfg(&config, "index")?,
+            error_template: get_template_from_cfg(&config, "error")?,
+
+            #[cfg(feature = "hireme")]
+            hireme_template: get_template_from_cfg(&config, "hireme")?,
+
             config,
         })
     }
@@ -127,16 +127,6 @@ impl Render {
         ctxt.insert("all_categories", &categories);
         ctxt.insert("all_series", &series);
         self.render(&self.index_template, &ctxt)
-    }
-
-    pub fn render_rss_feed(&self, recent: Vec<PostMetadata>) -> Result<RenderedPage, Errcode> {
-        let mut xml = "<rss version=\"2.0\"><channel>".to_string();
-        self.config.site_config.to_rss_feed(&mut xml);
-        for post in recent {
-            post.to_rss_item(&self.config.site_config, &mut xml);
-        }
-        xml += "</channel></rss>";
-        Ok(xml)
     }
 
     pub fn render_error<T: ToString>(&self, content: T) -> RenderedPage {

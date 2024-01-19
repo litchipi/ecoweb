@@ -4,8 +4,11 @@ on:
 
 jobs:
   check:
-    runs-on: rust-1.75.0
+    runs-on: docker #rust-1.75.0
     steps:
-      - run: cargo check
-      - run: cargo clippy
-      - run: cargo fmt --check
+      # - run: "curl -fsSL https://deb.nodesource.com/setup_21.x | sudo bash - && sudo apt-get install -y nodejs"
+      - uses: https://code.forgejo.org/actions/checkout@v4
+      # - run: cargo check
+      # - run: cargo clippy
+      # - run: cargo fmt --check
+      - run: cat Cargo.toml

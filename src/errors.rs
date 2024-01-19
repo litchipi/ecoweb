@@ -6,6 +6,7 @@ use crate::render::Render;
 
 use thiserror::Error;
 
+#[allow(dead_code)]
 #[derive(Debug, Error)]
 pub enum Errcode {
     #[error("Path doesn't exist")]
@@ -56,6 +57,9 @@ pub enum Errcode {
 
     #[error("Got error status code")]
     ErrorStatusCode(actix_web::http::StatusCode),
+
+    #[error("An error occured while converting Markdown to HTML")]
+    MdTransError(#[from] mdtrans::Errcode),
 
     #[cfg(feature = "css_minify")]
     #[error("Error while minifying CSS")]

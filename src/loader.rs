@@ -15,7 +15,7 @@ use self::storage::{StorageQuery, StorageTrait};
 
 #[allow(dead_code)]
 pub struct Loader {
-    pub storage: Storage,
+    storage: Storage,
     pub posts: Arc<post_loader::PostLoader>,
 }
 
@@ -26,6 +26,12 @@ impl Loader {
             posts: Arc::new(post_loader::PostLoader::init(config, storage.clone())),
             storage,
         })
+    }
+
+    #[allow(dead_code)]
+    pub fn reload(&self) -> Result<(), Errcode> {
+        self.storage.reload()?;
+        Ok(())
     }
 
     pub fn clean_exit(self) -> Result<(), Errcode> {

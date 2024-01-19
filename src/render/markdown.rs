@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use crate::post::PostMetadata;
 use mdtrans::{transform_markdown_string, MarkdownTransformer};
 use syntect::html::{ClassStyle, ClassedHTMLGenerator};
 use syntect::parsing::SyntaxSet;
@@ -14,11 +13,7 @@ impl MarkdownRenderer {
         MarkdownRenderer {}
     }
 
-    pub fn render(
-        &self,
-        content: String,
-        _: &PostMetadata,
-    ) -> Result<(String, String), mdtrans::Errcode> {
+    pub fn render(&self, content: String) -> Result<(String, String), mdtrans::Errcode> {
         let mut transformer = MarkdownToHtml::init();
         let mut body = transform_markdown_string(content, &mut transformer)?;
         if transformer.current_section > 0 {

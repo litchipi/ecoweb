@@ -1,10 +1,8 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::config::SiteConfig;
 use crate::loader::PostFilter;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -79,45 +77,6 @@ pub struct Post {
     pub metadata: PostMetadata,
     pub content: String,
     pub post_nav: String,
-}
-
-impl PostMetadata {
-    pub fn to_rss_item(&self, cfg: &SiteConfig, xml: &mut String) {
-        *xml += "<item>";
-        *xml += format!("<title>{}</title>", self.title).as_str();
-        *xml += format!(
-            "<link type=\"text/html\" title=\"{}\">{}/post/{}</link>",
-            self.title, cfg.base_url, self.id,
-        )
-        .as_str();
-
-        *xml += format!(
-            "<author>{} ({})</author>",
-            cfg.author_email, cfg.author_name
-        )
-        .as_str();
-        *xml += format!("<guid isPermaLink=\"false\">{}</guid>", self.id).as_str();
-
-        let date: DateTime<Utc> = DateTime::from_naive_utc_and_offset(
-            NaiveDateTime::from_timestamp_opt(self.date, 0).unwrap(),
-            Utc,
-        );
-        *xml += format!("<pubDate>{}</pubDate>", date.to_rfc2822()).as_str();
-
-        if let Some(ref d) = self.description {
-            *xml += format!("<description type=\"html\">{}</description>", d).as_str();
-        } else {
-            *xml += "<description>No description available</description>";
-        }
-
-        if let Some(ref c) = self.category {
-            *xml += format!("<category>{}</category>", c).as_str();
-        }
-        for tag in self.tags.iter() {
-            *xml += format!("<category>{}</category>", tag).as_str();
-        }
-        *xml += "</item>";
-    }
 }
 
 fn deser_id<'de, T, D>(de: D) -> Result<T, D::Error>

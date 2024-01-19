@@ -1,20 +1,51 @@
-use actix_web::http::header::{self, HeaderMap, HeaderValue};
+use actix_web::http::header::HeaderMap;
 use actix_web::web::{Data, Path, ServiceConfig};
 use actix_web::{get, HttpResponse};
+use paste::paste;
 
-use crate::config::Configuration;
 use crate::errors::raise_error;
+use crate::extensions;
 use crate::loader::PostFilter;
 use crate::render::Render;
 use crate::{errors::Errcode, loader::Loader};
 
-#[cfg(feature = "githook-update")]
-pub mod githook;
+// Generate wrapper functions allowing to call the `reply` function every time
+// Also automatically get the loader and render structs, and get inner args from path
+macro_rules! endpoint {
+    ($($name:ident: $endpoint:expr => ($($arg:ident: $type:ty),*));+ $(;)?) => {
+        $(
+            paste! {
+                #[get($endpoint)]
+                async fn [<$name _endpoint>]($($arg: Path<$type>,)* ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
+                    reply($name($($arg.into_inner(),)* &ldr, &rdr).await, &rdr, None)
+                }
+            }
+        )+
 
-// TODO robots.txt
+        fn configure_all_endpoints(srv: &mut ServiceConfig) {
+            $(
+                paste!{
+                    srv.service([<$name _endpoint>]);
+                }
+            )+
+        }
+    };
+}
 
-/// Wrapper around the response if we want to add specific headers
-fn reply(
+// Define all the endpoints, using the macro defined above
+endpoint!(
+    index: "/" => ();
+    all_posts: "/allposts" => ();
+    list_by_category: "/category/{name}" => (name: String);
+    list_by_serie: "/serie/{slug}" => (slug: String);
+    list_by_tag: "/tag/{tag}" => (tag: String);
+    get_post: "/post/{id}" => (id: u64);
+);
+
+// Wrapper around the response
+// Displays a nice error if we get an Errcode
+// Is able to add headers also if needed
+pub fn reply(
     page: Result<String, Errcode>,
     rdr: &Render,
     add_headers: Option<HeaderMap>,
@@ -33,13 +64,17 @@ fn reply(
     }
 }
 
-async fn not_found(rdr: Data<Render>) -> HttpResponse {
-    HttpResponse::NotFound().body(rdr.render_not_found())
+pub fn configure(srv: &mut ServiceConfig) -> Result<(), Errcode> {
+    configure_all_endpoints(srv);
+    srv.default_service(actix_web::web::route().to(not_found));
+    extensions::configure(srv)?;
+    Ok(())
 }
 
-#[get("/")]
-async fn get_index(ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
-    reply(index(&ldr, &rdr).await, &rdr, None)
+// ENDPOINT FUNCTIONS
+
+async fn not_found(rdr: Data<Render>) -> HttpResponse {
+    HttpResponse::NotFound().body(rdr.render_not_found())
 }
 
 async fn index(ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
@@ -50,47 +85,10 @@ async fn index(ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
     Ok(rendered)
 }
 
-#[get("/humans.txt")]
-async fn get_humans(cfg: Data<Configuration>) -> HttpResponse {
-    HttpResponse::Ok()
-        .append_header((header::CONTENT_TYPE, "text/plain"))
-        .body(cfg.site_config.humans_txt.clone())
-}
-
-#[get("/rss")]
-async fn get_rss_feed(ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
-    let mut add_headers = HeaderMap::new();
-    add_headers.insert(
-        header::CONTENT_TYPE,
-        HeaderValue::from_str(header::ContentType(mime::TEXT_XML).essence_str()).unwrap(),
-    );
-    reply(rss_feed(&ldr, &rdr).await, &rdr, Some(add_headers))
-}
-
-async fn rss_feed(ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
-    let all_posts = ldr.posts.get_recent(PostFilter::NoFilter, true, None)?;
-    let rendered = rdr.render_rss_feed(all_posts)?;
-    Ok(rendered)
-}
-
-#[get("/allposts")]
-async fn get_all_posts(ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
-    reply(all_posts(&ldr, &rdr).await, &rdr, None)
-}
-
 async fn all_posts(ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
     let all_posts = ldr.posts.get_recent(PostFilter::NoFilter, true, None)?;
     let rendered = rdr.render_list_allposts(all_posts)?;
     Ok(rendered)
-}
-
-#[get("/category/{name}")]
-async fn get_category(args: Path<String>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
-    reply(
-        list_by_category(args.into_inner(), &ldr, &rdr).await,
-        &rdr,
-        None,
-    )
 }
 
 async fn list_by_category(name: String, ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
@@ -111,15 +109,6 @@ async fn list_by_category(name: String, ldr: &Loader, rdr: &Render) -> Result<St
     Ok(rendered)
 }
 
-#[get("/serie/{slug}")]
-async fn get_serie(slug: Path<String>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
-    reply(
-        list_by_serie(slug.into_inner(), &ldr, &rdr).await,
-        &rdr,
-        None,
-    )
-}
-
 async fn list_by_serie(slug: String, ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
     let all_posts = ldr.posts.list_posts_serie(slug.clone(), vec![])?;
     if let Some(serie_md) = ldr.get_serie_md(slug.clone())? {
@@ -137,11 +126,6 @@ async fn list_by_serie(slug: String, ldr: &Loader, rdr: &Render) -> Result<Strin
     }
 }
 
-#[get("/tag/{tag}")]
-async fn get_by_tag(args: Path<String>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
-    reply(list_by_tag(args.into_inner(), &ldr, &rdr).await, &rdr, None)
-}
-
 async fn list_by_tag(tag: String, ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
     let all_posts = ldr
         .posts
@@ -155,16 +139,7 @@ async fn list_by_tag(tag: String, ldr: &Loader, rdr: &Render) -> Result<String, 
     Ok(rendered)
 }
 
-#[get("/post/{id}")]
-async fn get_post(id: Path<u64>, ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse {
-    reply(
-        get_post_content(id.into_inner(), &ldr, &rdr).await,
-        &rdr,
-        None,
-    )
-}
-
-async fn get_post_content(id: u64, ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
+async fn get_post(id: u64, ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
     let Some(post) = ldr.posts.get(id)? else {
         return Err(Errcode::NotFound("post_id", id.to_string()));
     };
@@ -216,21 +191,4 @@ async fn get_post_content(id: u64, ldr: &Loader, rdr: &Render) -> Result<String,
 
     let rendered = rdr.render_post(post, ctxt)?;
     Ok(rendered)
-}
-
-pub fn configure(srv: &mut ServiceConfig) -> Result<(), Errcode> {
-    srv.service(get_index)
-        .service(get_post)
-        .service(get_all_posts)
-        .service(get_serie)
-        .service(get_category)
-        .service(get_rss_feed)
-        .service(get_by_tag)
-        .service(get_humans)
-        .default_service(actix_web::web::route().to(not_found));
-
-    #[cfg(feature = "githook-update")]
-    srv.service(githook::git_webhook);
-
-    Ok(())
 }

@@ -1,8 +1,23 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{errors::Errcode, loader::LoadingLimits, Args, endpoints::githook::WebhookConfig};
+#[cfg(feature = "githook")]
+use crate::extensions::githook::GithookConfig;
+
+#[cfg(feature = "hireme")]
+use crate::extensions::hireme::HiremeConfig;
+
+#[cfg(feature = "webring")]
+use crate::extensions::webring::WebringConfig;
+
+#[cfg(feature = "humans-txt")]
+use crate::extensions::humans::generate_humans_txt;
+
+use crate::errors::Errcode;
+use crate::loader::LoadingLimits;
+use crate::Args;
 
 #[cfg(feature = "local_storage")]
 type StorageConfig = crate::loader::storage::local_storage::LocalStorageConfig;
@@ -45,7 +60,8 @@ impl From<Args> for Configuration {
     fn from(args: Args) -> Self {
         let configf = args.data_dir.join("config.toml");
         let config: Configuration = toml::from_str(
-            std::fs::read_to_string(&configf).expect("Unable to read config")
+            std::fs::read_to_string(configf)
+                .expect("Unable to read config")
                 .as_str(),
         )
         .expect("Unable to deserialize config file");
@@ -63,7 +79,11 @@ impl From<Args> for Configuration {
             site_config_file: args.data_dir.join(config.site_config_file),
             posts_registry: args.data_dir.join(config.posts_registry),
             posts_dir: args.data_dir.join(config.posts_dir),
-            add_assets: config.add_assets.into_iter().map(|p| args.data_dir.join(p)).collect(),
+            add_assets: config
+                .add_assets
+                .into_iter()
+                .map(|p| args.data_dir.join(p))
+                .collect(),
 
             // Static configs
             ..config
@@ -131,78 +151,48 @@ pub struct SiteConfig {
     pub copyrights: String,
 
     pub social: HashMap<String, String>,
-    pub webring: WebringContext,
-    pub webhook_update: WebhookConfig,
 
-    blog_engine_src: Option<String>,
+    pub blog_engine_src: Option<String>,
     pub blog_src: Option<String>,
 
+    // Extensions
+    #[cfg(feature = "githook")]
+    pub webhook_update: GithookConfig,
+
+    #[cfg(feature = "webring")]
+    pub webring: WebringConfig,
+
+    #[cfg(feature = "hireme")]
+    pub hireme: HiremeConfig,
+
+    #[cfg(feature = "humans-txt")]
     #[serde(default)]
     pub humans_txt: String,
 }
 
 impl SiteConfig {
-    pub fn init(root: &PathBuf, config: &Configuration) -> SiteConfig {
+    #[allow(unused_mut)]
+    pub fn init(root: &Path, config: &Configuration) -> SiteConfig {
         let sitef = root.join(&config.site_config_file);
-        let mut site_config : SiteConfig = toml::from_str(
-                std::fs::read_to_string(sitef)
-                    .expect("Unable to read site config file").as_str()
-            ).expect("Error while decoding data from site config file");
-        site_config.generate_humans_txt();
+        let mut site_config: SiteConfig = toml::from_str(
+            std::fs::read_to_string(sitef)
+                .expect("Unable to read site config file")
+                .as_str(),
+        )
+        .expect("Error while decoding data from site config file");
+
+        #[cfg(feature = "humans-txt")]
+        generate_humans_txt(&mut site_config);
+
+        #[cfg(feature = "hireme")]
+        site_config
+            .hireme
+            .convert_html(root)
+            .expect("Error while converting hireme section to HTML");
         SiteConfig {
             favicon: root.join(site_config.favicon),
             og_image: site_config.og_image.map(|i| root.join(i)),
             ..site_config
         }
     }
-
-    fn generate_humans_txt(&mut self) {
-        self.humans_txt = String::new();
-        self.humans_txt += "/* TEAM */\n";
-        self.humans_txt += format!("Author: {}\n", self.author_name).as_str();
-        for (sitename, social) in self.social.iter() {
-            if sitename == "email" {
-                let address = self.author_email.replace('@', " [at] ");
-                self.humans_txt += format!("Email: {}\n", address).as_str();
-            } else {
-                let mut s = sitename.chars();
-                let sitename_cap = match s.next() {
-                    None => String::new(),
-                    Some(f) => f.to_uppercase().collect::<String>() + s.as_str(),
-                };
-                self.humans_txt += format!("{}: {}\n", sitename_cap, social).as_str();
-            }
-        }
-        if let Some(ref blog_engine) = self.blog_engine_src {
-            self.humans_txt += format!("\nSoftware sources: {}\n", blog_engine).as_str();
-        }
-        if let Some(ref blog_src) = self.blog_src {
-            self.humans_txt += format!("Content sources: {}\n", blog_src).as_str();
-        }
-        self.humans_txt += "\nLanguage: English\n";
-    }
-
-    pub fn to_rss_feed(&self, xml: &mut String) {
-        *xml += format!("<title>{}</title>", self.name).as_str();
-        *xml += format!("<link>{}</link>", self.base_url).as_str();
-        *xml += format!("<description>{}</description>", self.description).as_str();
-        *xml += format!(
-            "<managingEditor>{} ({})</managingEditor>",
-            self.author_email, self.author_name,
-        )
-        .as_str();
-        *xml += format!(
-            "<webMaster>{} ({})</webMaster>",
-            self.author_email, self.author_name
-        )
-        .as_str();
-        *xml += format!("<copyright>{}</copyright>", self.copyrights).as_str();
-    }
-}
-
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct WebringContext {
-    name: String,
-    next: String,
-    previous: String,
 }
