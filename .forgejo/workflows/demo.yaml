@@ -1,0 +1,11 @@
+on:
+  pull_request:
+    types: [ opened, edited, closed, reopened, synchronize ]
+
+jobs:
+  check:
+    runs-on: rust-1.75.0
+    steps:
+      - run: cargo check
+      - run: cargo clippy
+      - run: cargo fmt --check
