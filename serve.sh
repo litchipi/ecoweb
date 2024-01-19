@@ -1,6 +1,5 @@
 #!/bin/sh
 
-# export RUST_LOG="trace"
 BLOG_DATA_DIR=$(realpath ../blog)
 
 export GIT_WEBHOOK_SECRET="test"
