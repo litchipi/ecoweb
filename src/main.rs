@@ -1,5 +1,4 @@
 use actix_files::Files;
-use actix_web::dev::Service;
 use actix_web::http::header;
 use actix_web::middleware::{Compress, DefaultHeaders, Logger};
 use actix_web::web::Data;
@@ -7,6 +6,9 @@ use actix_web::{App, HttpServer};
 use clap::{arg, command, Parser};
 use std::path::PathBuf;
 use std::sync::Arc;
+
+#[cfg(feature="hot_reloading")]
+use actix_web::dev::Service;
 
 mod config;
 mod endpoints;
