@@ -167,15 +167,19 @@ impl Render {
 }
 
 #[cfg(feature = "css_minify")]
-pub fn minify_css(name: String, css: &String) -> Result<RenderedPage, Errcode> {
+pub fn minify_css(name: String, css: &str) -> Result<RenderedPage, Errcode> {
     use lightningcss::stylesheet::{MinifyOptions, ParserOptions, PrinterOptions, StyleSheet};
-    let mut parser_opts = ParserOptions::default();
-    parser_opts.filename = name;
+    let parser_opts = ParserOptions {
+        filename: name,
+        ..Default::default()
+    };
     let mut stylesheet = StyleSheet::parse(css, parser_opts)?;
     let minify_opts = MinifyOptions::default();
     stylesheet.minify(minify_opts)?;
-    let mut printer_opts = PrinterOptions::default();
-    printer_opts.minify = true;
+    let printer_opts = PrinterOptions {
+        minify: true,
+        ..Default::default()
+    };
     let res = stylesheet.to_css(printer_opts)?;
     Ok(res.code)
 }

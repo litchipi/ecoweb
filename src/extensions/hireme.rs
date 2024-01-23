@@ -6,7 +6,7 @@ use crate::{
     render::{Render, RenderedPage},
 };
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +22,7 @@ pub struct HiremeConfig {
 }
 
 impl HiremeConfig {
-    pub fn convert_html(&mut self, root: &PathBuf) -> Result<(), Errcode> {
+    pub fn convert_html(&mut self, root: &Path) -> Result<(), Errcode> {
         let renderer = MarkdownRenderer::init();
         let content = std::fs::read_to_string(root.join(&self.markdown_file))?;
         let (body, _) = renderer.render(content)?;

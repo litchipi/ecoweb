@@ -48,8 +48,7 @@ async fn git_webhook(
     let Some(header_hmac) = req
         .headers()
         .get("x-forgejo-signature")
-        .map(|h| h.to_str().ok())
-        .flatten()
+        .and_then(|h| h.to_str().ok())
     else {
         return HttpResponse::BadRequest().body("Signature header not found or invalid");
     };
@@ -57,19 +56,15 @@ async fn git_webhook(
         return HttpResponse::Forbidden().body("Wrong webhook secret");
     }
 
-    let Ok(json_data) = serde_json::from_slice::<serde_json::Value>(&data.as_ref()) else {
+    let Ok(json_data) = serde_json::from_slice::<serde_json::Value>(data.as_ref()) else {
         return HttpResponse::BadRequest().body("Unable to decode JSON from payload data");
     };
 
-    let Some(head_commit) = json_data
-        .get("head_commit")
-        .map(|m| m.as_object())
-        .flatten()
-    else {
+    let Some(head_commit) = json_data.get("head_commit").and_then(|m| m.as_object()) else {
         return HttpResponse::BadRequest().body("No key \"head_commit\" in JSON data, or invalid");
     };
 
-    let Some(commit_id) = head_commit.get("id").map(|i| i.as_str()).flatten() else {
+    let Some(commit_id) = head_commit.get("id").and_then(|i| i.as_str()) else {
         return HttpResponse::BadRequest()
             .body("No key \"id\" in map \"head_commit\" in JSON data, or invalid");
     };
@@ -85,6 +80,7 @@ async fn git_webhook(
     }
 }
 
+#[allow(clippy::ptr_arg)]
 fn get_basedir(acc: &String, x: &str) -> String {
     let mut res = "".to_string();
     for (c1, c2) in acc.chars().zip(x.chars()) {
