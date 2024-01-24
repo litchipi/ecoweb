@@ -102,6 +102,10 @@ impl MarkdownToHtml {
 }
 
 impl MarkdownTransformer for MarkdownToHtml {
+    fn transform_horizontal_separator(&mut self) -> String {
+        "<hr>".to_string()
+    }
+
     fn transform_text(&mut self, text: String) -> String {
         self.sanitize_html(text)
     }
