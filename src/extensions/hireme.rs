@@ -33,14 +33,9 @@ impl HiremeConfig {
 
 #[get("/hireme")]
 async fn get_hireme(rdr: Data<Render>) -> HttpResponse {
-    reply(rdr.render_hireme(), &rdr, None)
+    reply(render_hireme(&rdr), &rdr, None)
 }
 
-impl Render {
-    pub fn render_hireme(&self) -> Result<RenderedPage, Errcode> {
-        Ok(self
-            .engine
-            .read()
-            .render(&self.hireme_template, &self.base_context)?)
-    }
+fn render_hireme(rdr: &Render) -> Result<RenderedPage, Errcode> {
+    Ok(rdr.engine.read().render(&rdr.hireme_template, &rdr.base_context)?)
 }
