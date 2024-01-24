@@ -64,8 +64,8 @@ impl Render {
             Tera::new(format!("{}/**/*.html", config.templates_dir.to_str().unwrap()).as_str())?;
         tera.register_filter("timestamp_convert", timestamp_to_date);
 
-        setup_css(&config)?;
-        setup_scripts(&config)?;
+        Self::setup_css(&config)?;
+        Self::setup_scripts(&config)?;
 
         let mut base_context = Context::new();
         base_context.insert("site", &config.site_config);
@@ -157,13 +157,60 @@ impl Render {
                 Ok(minified) => minified.to_string(),
                 Err(e) => {
                     log::error!("Error while minifying: {:?}", e);
-                    println!("{:?}", rendered.get((e.position - 50)..(e.position + 50)));
+                    log::error!("{:?}", rendered.get((e.position - 50)..(e.position + 50)));
                     error_message(format!("Minifying HTML error: {:?}", e))
                 }
             }
         };
         Ok(rendered)
     }
+
+    pub fn setup_css(config: &Configuration) -> Result<(), Errcode> {
+        let grass_opts = config.get_grass_options();
+
+        for (outpath, scss_list) in config.scss.iter() {
+            let mut out_css = String::new();
+            for scss_path in scss_list.iter() {
+                let fpath = config.scss_dir.join(scss_path);
+                if !fpath.exists() {
+                    return Err(Errcode::PathDoesntExist("scss-file", fpath));
+                }
+                out_css += grass::from_path(fpath, &grass_opts)?.as_str();
+            }
+
+            #[cfg(feature = "css_minify")]
+            let out_css = minify_css(outpath.to_string(), &out_css)?;
+
+            std::fs::write(config.assets_dir.join(outpath), out_css)?;
+        }
+
+        // Code.css
+        let theme_set = ThemeSet::load_defaults();
+        let theme = theme_set.themes.get(&config.code_theme).unwrap().clone();
+        let code_css = css_for_theme_with_class_style(&theme, ClassStyle::Spaced)?;
+        let fpath = config.assets_dir.join("code.css");
+        #[cfg(feature = "css_minify")]
+        let code_css = minify_css(format!("{:?}", &fpath), &code_css)?;
+        std::fs::write(fpath, code_css)?;
+
+        Ok(())
+    }
+
+    pub fn setup_scripts(config: &Configuration) -> Result<(), Errcode> {
+        {
+            let script = &"post.js";
+            std::fs::copy(
+                config.scripts_dir.join(script),
+                config.assets_dir.join(script),
+            )?;
+
+            #[cfg(feature = "js_minify")]
+            minify_js!(config.assets_dir.join(script));
+        }
+
+        Ok(())
+    }
+
 }
 
 #[cfg(feature = "css_minify")]
@@ -184,37 +231,6 @@ pub fn minify_css(name: String, css: &str) -> Result<RenderedPage, Errcode> {
     Ok(res.code)
 }
 
-pub fn setup_css(config: &Arc<Configuration>) -> Result<(), Errcode> {
-    let grass_opts = config.get_grass_options();
-
-    for (outpath, scss_list) in config.scss.iter() {
-        let mut out_css = String::new();
-        for scss_path in scss_list.iter() {
-            let fpath = config.scss_dir.join(scss_path);
-            if !fpath.exists() {
-                return Err(Errcode::PathDoesntExist("scss-file", fpath));
-            }
-            out_css += grass::from_path(fpath, &grass_opts)?.as_str();
-        }
-
-        #[cfg(feature = "css_minify")]
-        let out_css = minify_css(outpath.to_string(), &out_css)?;
-
-        std::fs::write(config.assets_dir.join(outpath), out_css)?;
-    }
-
-    // Code.css
-    let theme_set = ThemeSet::load_defaults();
-    let theme = theme_set.themes.get(&config.code_theme).unwrap().clone();
-    let code_css = css_for_theme_with_class_style(&theme, ClassStyle::Spaced)?;
-    let fpath = config.assets_dir.join("code.css");
-    #[cfg(feature = "css_minify")]
-    let code_css = minify_css(format!("{:?}", &fpath), &code_css)?;
-    std::fs::write(fpath, code_css)?;
-
-    Ok(())
-}
-
 #[allow(unused_macros)]
 macro_rules! minify_js {
     ($fpath:expr) => {
@@ -225,21 +241,6 @@ macro_rules! minify_js {
         minify(&session, TopLevelMode::Global, &code, &mut out).unwrap();
         std::fs::write($fpath, out)?;
     };
-}
-
-pub fn setup_scripts(config: &Arc<Configuration>) -> Result<(), Errcode> {
-    {
-        let script = &"post.js";
-        std::fs::copy(
-            config.scripts_dir.join(script),
-            config.assets_dir.join(script),
-        )?;
-
-        #[cfg(feature = "js_minify")]
-        minify_js!(config.assets_dir.join(script));
-    }
-
-    Ok(())
 }
 
 pub fn timestamp_to_date(val: &Value, _: &HashMap<String, Value>) -> Result<Value, tera::Error> {
