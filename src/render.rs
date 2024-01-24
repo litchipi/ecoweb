@@ -16,6 +16,18 @@ use crate::{
 
 pub mod markdown;
 
+#[allow(unused_macros)]
+macro_rules! minify_js {
+    ($fpath:expr) => {
+        use minify_js::{minify, Session, TopLevelMode};
+        let code = std::fs::read($fpath)?;
+        let session = Session::new();
+        let mut out = Vec::new();
+        minify(&session, TopLevelMode::Global, &code, &mut out).unwrap();
+        std::fs::write($fpath, out)?;
+    };
+}
+
 #[allow(dead_code)]
 fn error_message(reason: String) -> String {
     format!(
@@ -229,18 +241,6 @@ pub fn minify_css(name: String, css: &str) -> Result<RenderedPage, Errcode> {
     };
     let res = stylesheet.to_css(printer_opts)?;
     Ok(res.code)
-}
-
-#[allow(unused_macros)]
-macro_rules! minify_js {
-    ($fpath:expr) => {
-        use minify_js::{minify, Session, TopLevelMode};
-        let code = std::fs::read($fpath)?;
-        let session = Session::new();
-        let mut out = Vec::new();
-        minify(&session, TopLevelMode::Global, &code, &mut out).unwrap();
-        std::fs::write($fpath, out)?;
-    };
 }
 
 pub fn timestamp_to_date(val: &Value, _: &HashMap<String, Value>) -> Result<Value, tera::Error> {

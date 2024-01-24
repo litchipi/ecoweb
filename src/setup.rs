@@ -1,7 +1,7 @@
 use crate::config::Configuration;
 use crate::errors::Errcode;
 
-#[cfg(feature = "hot_reloading")]
+#[allow(unused_imports)]
 use crate::{loader::Loader, render::Render};
 
 pub fn setup_files(config: &Configuration) -> Result<(), Errcode> {
@@ -20,7 +20,7 @@ pub fn setup_files(config: &Configuration) -> Result<(), Errcode> {
     Ok(())
 }
 
-#[cfg(feature = "hot_reloading")]
+#[allow(dead_code)]
 pub fn reload(ldr: &Loader, rdr: &Render, config: &Configuration) -> Result<(), Errcode> {
     let tstart = std::time::Instant::now();
     rdr.engine.write().full_reload()?;
