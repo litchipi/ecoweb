@@ -93,7 +93,6 @@ impl From<Args> for Configuration {
 
 impl Configuration {
     pub fn validate(&self) -> Result<(), Errcode> {
-        println!("{:?}", self.storage_cfg);
         self.storage_cfg.validate()?;
         if !self.site_config_file.exists() {
             return Err(Errcode::PathDoesntExist(
