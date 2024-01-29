@@ -80,6 +80,10 @@ impl Render {
         Self::setup_scripts(&config)?;
 
         let mut base_context = Context::new();
+
+        #[cfg(feature = "add-endpoint")]
+        crate::extensions::addendpoint::insert_additionnal_context(&config, &mut base_context)?;
+
         base_context.insert("site", &config.site_config);
 
         Ok(Render {
@@ -222,7 +226,6 @@ impl Render {
 
         Ok(())
     }
-
 }
 
 #[cfg(feature = "css_minify")]

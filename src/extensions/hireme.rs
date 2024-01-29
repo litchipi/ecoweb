@@ -1,3 +1,5 @@
+// TODO    Recreate this entirely from add-endpoints extension
+
 use actix_web::{get, web::Data, HttpResponse};
 
 use crate::{
@@ -37,5 +39,8 @@ async fn get_hireme(rdr: Data<Render>) -> HttpResponse {
 }
 
 fn render_hireme(rdr: &Render) -> Result<RenderedPage, Errcode> {
-    Ok(rdr.engine.read().render(&rdr.hireme_template, &rdr.base_context)?)
+    Ok(rdr
+        .engine
+        .read()
+        .render(&rdr.hireme_template, &rdr.base_context)?)
 }

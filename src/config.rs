@@ -54,6 +54,9 @@ pub struct Configuration {
     pub site_config: SiteConfig,
     #[serde(skip)]
     pub data_dir: PathBuf,
+
+    #[cfg(feature = "add-endpoint")]
+    pub add_endpoints: HashMap<String, PathBuf>,
 }
 
 impl From<Args> for Configuration {
@@ -167,6 +170,9 @@ pub struct SiteConfig {
     #[cfg(feature = "humans-txt")]
     #[serde(default)]
     pub humans_txt: String,
+
+    #[cfg(feature = "add-endpoint")]
+    pub additionnal_context: HashMap<String, PathBuf>,
 }
 
 impl SiteConfig {
@@ -188,6 +194,7 @@ impl SiteConfig {
             .hireme
             .convert_html(root)
             .expect("Error while converting hireme section to HTML");
+
         SiteConfig {
             favicon: root.join(site_config.favicon),
             og_image: site_config.og_image.map(|i| root.join(i)),

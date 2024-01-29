@@ -1,6 +1,7 @@
 use actix_web::web::ServiceConfig;
 
-use crate::errors::Errcode;
+use crate::config::Configuration;
+use crate::render::Render;
 
 // TODO robots.txt
 
@@ -19,6 +20,9 @@ pub mod hireme;
 #[cfg(feature = "webring")]
 pub mod webring;
 
+#[cfg(feature = "add-endpoint")]
+pub mod addendpoint;
+
 pub fn announce() {
     #[cfg(feature = "githook")]
     log::info!("Using extension githook");
@@ -34,10 +38,13 @@ pub fn announce() {
 
     #[cfg(feature = "webring")]
     log::info!("Using extension webring");
+
+    #[cfg(feature = "add-endpoint")]
+    log::info!("Using extension add-endpoint");
 }
 
 #[allow(unused_variables)]
-pub fn configure(srv: &mut ServiceConfig) -> Result<(), Errcode> {
+pub fn configure(cfg: &Configuration, rdr: &Render, srv: &mut ServiceConfig) {
     #[cfg(feature = "githook")]
     {
         let secret = githook::GithookSecret::init();
@@ -54,5 +61,9 @@ pub fn configure(srv: &mut ServiceConfig) -> Result<(), Errcode> {
     #[cfg(feature = "hireme")]
     srv.service(hireme::get_hireme);
 
-    Ok(())
+    #[cfg(feature = "add-endpoint")]
+    srv.configure(|srv| {
+        addendpoint::configure_add_endpoints(cfg, rdr, srv)
+            .expect("Unable to configure additionnal endpoints")
+    });
 }

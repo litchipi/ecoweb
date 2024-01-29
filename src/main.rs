@@ -1,11 +1,14 @@
 use actix_files::Files;
 use actix_web::http::header;
 use actix_web::middleware::{Compress, DefaultHeaders, Logger};
-use actix_web::web::Data;
+use actix_web::web::{Data, ServiceConfig};
 use actix_web::{App, HttpServer};
 use clap::{arg, command, Parser};
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use loader::Loader;
+use render::Render;
 
 #[cfg(feature = "hot_reloading")]
 use actix_web::dev::Service;
@@ -38,6 +41,16 @@ struct Args {
     /// Path to the directory where to store the generated assets
     #[arg(long = "out", default_value = "out")]
     assets_dir: PathBuf,
+}
+
+pub fn configure_services(
+    cfg: &Configuration,
+    rdr: &Render,
+    _ldr: &Loader,
+    srv: &mut ServiceConfig,
+) {
+    endpoints::configure_all_endpoints(srv);
+    extensions::configure(cfg, rdr, srv);
 }
 
 #[actix_web::main]
@@ -99,7 +112,7 @@ async fn main() -> std::io::Result<()> {
         app.app_data(render.clone())
             .app_data(loader.clone())
             .app_data(Data::from(config.clone()))
-            .configure(|srv| endpoints::configure(srv).expect("Unable to configure endpoints"))
+            .configure(|srv| configure_services(&config, &render, &loader, srv))
             .service(Files::new("/", config.assets_dir.canonicalize().unwrap()))
     })
     .bind(("0.0.0.0", port))?

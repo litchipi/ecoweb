@@ -47,10 +47,11 @@ default-features = false
 
 [features]
 # Bundles
-default = ["local_storage"]
+default = ["local_storage", "add-endpoint"]
 dev = ["local_storage", "hot_reloading", "no_cache"]
 
 # Extensions
+add-endpoint = []
 githook = []
 rss = []
 humans-txt = []

@@ -4,7 +4,6 @@ use actix_web::{get, HttpResponse};
 use paste::paste;
 
 use crate::errors::raise_error;
-use crate::extensions;
 use crate::loader::PostFilter;
 use crate::render::Render;
 use crate::{errors::Errcode, loader::Loader};
@@ -22,12 +21,17 @@ macro_rules! endpoint {
             }
         )+
 
-        fn configure_all_endpoints(srv: &mut ServiceConfig) {
+        async fn not_found(rdr: Data<Render>) -> HttpResponse {
+            HttpResponse::NotFound().body(rdr.render_not_found())
+        }
+
+        pub fn configure_all_endpoints(srv: &mut ServiceConfig) {
             $(
                 paste!{
                     srv.service([<$name _endpoint>]);
                 }
             )+
+            srv.default_service(actix_web::web::route().to(not_found));
         }
     };
 }
@@ -64,18 +68,7 @@ pub fn reply(
     }
 }
 
-pub fn configure(srv: &mut ServiceConfig) -> Result<(), Errcode> {
-    configure_all_endpoints(srv);
-    srv.default_service(actix_web::web::route().to(not_found));
-    extensions::configure(srv)?;
-    Ok(())
-}
-
 // ENDPOINT FUNCTIONS
-
-async fn not_found(rdr: Data<Render>) -> HttpResponse {
-    HttpResponse::NotFound().body(rdr.render_not_found())
-}
 
 async fn index(ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
     let recent_posts = ldr.posts.get_recent(PostFilter::NoFilter, true, Some(5))?;
