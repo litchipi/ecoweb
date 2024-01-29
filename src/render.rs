@@ -18,13 +18,13 @@ pub mod markdown;
 
 #[allow(unused_macros)]
 macro_rules! minify_js {
-    ($fpath:expr) => {
+    ($src:expr, $dst:expr) => {
         use minify_js::{minify, Session, TopLevelMode};
-        let code = std::fs::read($fpath)?;
-        let session = Session::new();
+        let code = std::fs::read(&$src)?;
+        let session = minify_js::Session::new();
         let mut out = Vec::new();
         minify(&session, TopLevelMode::Global, &code, &mut out).unwrap();
-        std::fs::write($fpath, out)?;
+        std::fs::write($dst, out)?;
     };
 }
 
@@ -213,17 +213,21 @@ impl Render {
     }
 
     pub fn setup_scripts(config: &Configuration) -> Result<(), Errcode> {
-        {
-            let script = &"post.js";
-            std::fs::copy(
-                config.scripts_dir.join(script),
-                config.assets_dir.join(script),
-            )?;
+        for file in std::fs::read_dir(&config.scripts_dir)? {
+            let src = file?.path();
+            if let Some(ext) = src.extension() {
+                let fname = src.file_name().unwrap();
+                #[cfg(feature = "js_minify")]
+                if ext == "js" {
+                    minify_js!(src, config.assets_dir.join(fname));
+                }
 
-            #[cfg(feature = "js_minify")]
-            minify_js!(config.assets_dir.join(script));
+                #[cfg(not(feature = "js_minify"))]
+                if ext == "js" {
+                    std::fs::copy(&src, config.assets_dir.join(fname))?;
+                }
+            }
         }
-
         Ok(())
     }
 }
