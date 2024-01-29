@@ -13,7 +13,7 @@ pub fn insert_additionnal_context(
     for (name, fpath) in config.site_config.additionnal_context.iter() {
         let fpath = config.data_dir.join(fpath);
         let data: toml::Value = toml::from_str(std::fs::read_to_string(fpath)?.as_str())?;
-        ctxt.insert(name, &data); // &toml_to_json(data));
+        ctxt.insert(name, &data);
     }
     Ok(())
 }
