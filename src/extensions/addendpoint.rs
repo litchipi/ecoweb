@@ -21,7 +21,7 @@ pub fn insert_additionnal_context(
 async fn add_endpoint(path: String, rdr: Data<Render>) -> HttpResponse {
     let mut ctxt = rdr.base_context.clone();
     ctxt.insert("add_endpoint_path", &path);
-    match rdr.render(path.as_str(), &ctxt) {
+    match rdr.render(&path, &ctxt) {
         Err(e) => raise_error(e, &rdr),
         Ok(res) => HttpResponse::Ok().body(res),
     }
@@ -40,7 +40,6 @@ pub fn configure_add_endpoints(
         )?;
 
         let route = web::get().to(move |rdr: Data<Render>| add_endpoint(path2.clone(), rdr));
-        log::debug!("Registered additionnal endpoint {path}");
         srv.route(path.as_str(), route);
     }
     Ok(())

@@ -47,7 +47,7 @@ default-features = false
 
 [features]
 # Bundles
-default = ["local_storage", "add-endpoint"]
+default = ["local_storage"]
 dev = ["local_storage", "hot_reloading", "no_cache"]
 
 # Extensions
