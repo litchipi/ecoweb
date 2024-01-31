@@ -1,0 +1,39 @@
+on:
+  pull_request:
+    types: [ opened, edited, closed, reopened, synchronize ]
+
+jobs:
+  check:
+    container:
+      image: cimg/rust:1.75.0-node
+    steps:
+      - uses: https://code.forgejo.org/actions/checkout@v4
+      - uses: https://code.forgejo.org/actions/cache@v4
+        name: Cache tooling
+        id: cache-tooling
+        with:
+          path: ~/.cargo/bin/
+          key: ${{ runner.os }}-rust-tooling
+      - if: ${{ !steps.cache-tooling.outputs.cache-hit }}
+        run: cargo install cargo-audit
+
+      # See https://code.forgejo.org/forgejo/runner/issues/54
+      - name: Calculate lockfile hash
+        id: cargo-lock-hash
+        run: echo "hash=$(md5sum Cargo.lock)" >> $GITHUB_OUTPUT
+
+      - uses: https://code.forgejo.org/actions/cache@v4
+        name: Cache dependencies
+        id: cache-rust
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-check-${{ steps.cargo-lock-hash.outputs.hash }}
+
+      - run: cargo check
+      - run: cargo clippy
+      - run: cargo fmt --check
+      - run: cargo audit
