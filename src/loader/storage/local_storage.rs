@@ -1,8 +1,8 @@
-use parking_lot::RwLock;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 use serde::{Deserialize, Serialize};
 
@@ -73,8 +73,8 @@ pub struct LocalStorage {
     series: SeriesList,
 }
 
-fn load_registry(fpath: &PathBuf) -> Result<PostsRegistry, LocalStorageError> {
-    let reg_str = std::fs::read_to_string(fpath)?;
+async fn load_registry(fpath: &PathBuf) -> Result<PostsRegistry, LocalStorageError> {
+    let reg_str = tokio::fs::read_to_string(fpath).await?;
     let new_registry = toml::from_str::<PostsRegistry>(reg_str.as_str())?;
     Ok(new_registry)
 }
@@ -82,7 +82,7 @@ fn load_registry(fpath: &PathBuf) -> Result<PostsRegistry, LocalStorageError> {
 impl StorageTrait for LocalStorage {
     type Error = LocalStorageError;
 
-    fn init(config: &Arc<Configuration>) -> Result<Self, Self::Error>
+    async fn init(config: &Arc<Configuration>) -> Result<Self, Self::Error>
     where
         Self: Sized,
     {
@@ -95,7 +95,7 @@ impl StorageTrait for LocalStorage {
             posts,
             series,
         };
-        storage.reload()?;
+        storage.reload().await?;
         Ok(storage)
     }
 
@@ -104,9 +104,12 @@ impl StorageTrait for LocalStorage {
         Ok(())
     }
 
-    fn query_post_metadata(&self, query: StorageQuery) -> Result<Vec<PostMetadata>, Self::Error> {
+    async fn query_post_metadata(
+        &self,
+        query: StorageQuery,
+    ) -> Result<Vec<PostMetadata>, Self::Error> {
         Ok({
-            let posts = self.posts.read();
+            let posts = self.posts.read().await;
             let mut all_md = posts
                 .values()
                 .filter(|p| !p.metadata.hidden && p.metadata.filter(&query.post_filter))
@@ -125,6 +128,7 @@ impl StorageTrait for LocalStorage {
             } else {
                 query.limit
             };
+            let series = self.series.read().await;
             all_md
                 .into_iter()
                 .skip(query.offset)
@@ -132,7 +136,7 @@ impl StorageTrait for LocalStorage {
                 .cloned()
                 .map(|mut md| {
                     if let Some(ref slug) = md.serie {
-                        md.serie_title = self.series.read().get(slug).map(|t| t.title.clone());
+                        md.serie_title = series.get(slug).map(|t| t.title.clone());
                     }
                     md
                 })
@@ -140,9 +144,9 @@ impl StorageTrait for LocalStorage {
         })
     }
 
-    fn query_serie(&self, query: StorageQuery) -> Result<Vec<SerieMetadata>, Self::Error> {
+    async fn query_serie(&self, query: StorageQuery) -> Result<Vec<SerieMetadata>, Self::Error> {
         Ok({
-            let series = self.series.read();
+            let series = self.series.read().await;
             let mut all_series: Vec<(&String, &SerieMetadata)> = series
                 .iter()
                 .filter(|(slug, _)| {
@@ -182,9 +186,9 @@ impl StorageTrait for LocalStorage {
         })
     }
 
-    fn query_category(&self, query: StorageQuery) -> Result<Vec<String>, Self::Error> {
+    async fn query_category(&self, query: StorageQuery) -> Result<Vec<String>, Self::Error> {
         Ok({
-            let posts = self.posts.read();
+            let posts = self.posts.read().await;
             let all_categories: HashSet<&String> = posts
                 .values()
                 .filter_map(|p| p.metadata.category.as_ref())
@@ -214,15 +218,15 @@ impl StorageTrait for LocalStorage {
         })
     }
 
-    fn get_post_content(&self, id: u64) -> Result<Option<Post>, Self::Error> {
-        Ok(self.posts.read().get(&id).cloned())
+    async fn get_post_content(&self, id: u64) -> Result<Option<Post>, Self::Error> {
+        Ok(self.posts.read().await.get(&id).cloned())
     }
 
-    fn reload(&self) -> Result<(), Self::Error> {
-        let registry = load_registry(&self.config.post_registry)?;
+    async fn reload(&self) -> Result<(), Self::Error> {
+        let registry = load_registry(&self.config.post_registry).await?;
 
-        let mut series = self.series.write();
-        let mut posts = self.posts.write();
+        let mut series = self.series.write().await;
+        let mut posts = self.posts.write().await;
         *series = registry.series;
         *posts = BTreeMap::new();
 
@@ -235,7 +239,7 @@ impl StorageTrait for LocalStorage {
             };
 
             let post_fname = self.config.posts_dir.join(fpath);
-            let post_markdown = std::fs::read_to_string(&post_fname)?;
+            let post_markdown = tokio::fs::read_to_string(&post_fname).await?;
             let res = md_to_html.render(post_markdown);
             if let Err(e) = res {
                 log::error!("Error while rendering post {slug}: {e:?}");

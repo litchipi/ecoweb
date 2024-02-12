@@ -71,21 +71,27 @@ pub fn reply(
 // ENDPOINT FUNCTIONS
 
 async fn index(ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
-    let recent_posts = ldr.posts.get_recent(PostFilter::NoFilter, true, Some(5))?;
-    let all_categories = ldr.get_all_categories()?;
-    let all_series = ldr.get_all_series()?;
+    let recent_posts = ldr
+        .posts
+        .get_recent(PostFilter::NoFilter, true, Some(5))
+        .await?;
+    let all_categories = ldr.get_all_categories().await?;
+    let all_series = ldr.get_all_series().await?;
     let rendered = rdr.render_index(recent_posts, all_categories, all_series)?;
     Ok(rendered)
 }
 
 async fn all_posts(ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
-    let all_posts = ldr.posts.get_recent(PostFilter::NoFilter, true, None)?;
+    let all_posts = ldr
+        .posts
+        .get_recent(PostFilter::NoFilter, true, None)
+        .await?;
     let rendered = rdr.render_list_allposts(all_posts)?;
     Ok(rendered)
 }
 
 async fn list_by_category(name: String, ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
-    let all_posts = ldr.posts.list_posts_category(name, vec![])?;
+    let all_posts = ldr.posts.list_posts_category(name, vec![]).await?;
 
     let rendered = if let Some(fpost) = all_posts.first() {
         let category = fpost.category.clone().unwrap();
@@ -103,8 +109,8 @@ async fn list_by_category(name: String, ldr: &Loader, rdr: &Render) -> Result<St
 }
 
 async fn list_by_serie(slug: String, ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
-    let all_posts = ldr.posts.list_posts_serie(slug.clone(), vec![])?;
-    if let Some(serie_md) = ldr.get_serie_md(slug.clone())? {
+    let all_posts = ldr.posts.list_posts_serie(slug.clone(), vec![]).await?;
+    if let Some(serie_md) = ldr.get_serie_md(slug.clone()).await? {
         if all_posts.is_empty() {
             return Ok(rdr.render_empty_post_list("serie"));
         }
@@ -122,7 +128,8 @@ async fn list_by_serie(slug: String, ldr: &Loader, rdr: &Render) -> Result<Strin
 async fn list_by_tag(tag: String, ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
     let all_posts = ldr
         .posts
-        .get_recent(PostFilter::ContainsTag(tag.clone()), true, None)?;
+        .get_recent(PostFilter::ContainsTag(tag.clone()), true, None)
+        .await?;
 
     let mut ctxt = rdr.base_context.clone();
     ctxt.insert("filter", &tag);
@@ -133,7 +140,7 @@ async fn list_by_tag(tag: String, ldr: &Loader, rdr: &Render) -> Result<String, 
 }
 
 async fn get_post(id: u64, ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
-    let Some(post) = ldr.posts.get(id)? else {
+    let Some(post) = ldr.posts.get(id).await? else {
         return Err(Errcode::NotFound("post_id", id.to_string()));
     };
 
@@ -143,7 +150,8 @@ async fn get_post(id: u64, ldr: &Loader, rdr: &Render) -> Result<String, Errcode
     if let Some(ref slug) = post.metadata.serie {
         let serie_posts = ldr
             .posts
-            .get_recent(PostFilter::Serie(slug.clone()), false, Some(0))?;
+            .get_recent(PostFilter::Serie(slug.clone()), false, Some(0))
+            .await?;
         ctxt.insert("serie_posts", &serie_posts);
 
         let next_in_serie = serie_posts.iter().find(|p| p.date > post.metadata.date);
@@ -165,20 +173,23 @@ async fn get_post(id: u64, ldr: &Loader, rdr: &Render) -> Result<String, Errcode
             + 1;
         ctxt.insert("post_serie_index", &post_serie_index);
 
-        let serie_md = ldr.get_serie_md(slug.clone())?;
+        let serie_md = ldr.get_serie_md(slug.clone()).await?;
         ctxt.insert("serie_metadata", &serie_md);
     }
 
     if let Some(ref category) = post.metadata.category {
-        let cat_posts = ldr.posts.get_recent(
-            PostFilter::Combine(vec![
-                PostFilter::Category(category.clone()),
-                PostFilter::DifferentThan(id),
-                PostFilter::NoSerie,
-            ]),
-            true,
-            None,
-        )?;
+        let cat_posts = ldr
+            .posts
+            .get_recent(
+                PostFilter::Combine(vec![
+                    PostFilter::Category(category.clone()),
+                    PostFilter::DifferentThan(id),
+                    PostFilter::NoSerie,
+                ]),
+                true,
+                None,
+            )
+            .await?;
         ctxt.insert("category_posts", &cat_posts);
     }
 

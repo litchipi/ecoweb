@@ -15,15 +15,18 @@ pub type Storage = local_storage::LocalStorage;
 
 pub trait StorageTrait {
     type Error: Into<Errcode>;
-    fn init(config: &Arc<Configuration>) -> Result<Self, Self::Error>
+    async fn init(config: &Arc<Configuration>) -> Result<Self, Self::Error>
     where
         Self: Sized;
     fn clean_exit(self) -> Result<(), Errcode>;
-    fn get_post_content(&self, id: u64) -> Result<Option<Post>, Self::Error>;
-    fn query_post_metadata(&self, query: StorageQuery) -> Result<Vec<PostMetadata>, Self::Error>;
-    fn query_serie(&self, query: StorageQuery) -> Result<Vec<SerieMetadata>, Self::Error>;
-    fn query_category(&self, query: StorageQuery) -> Result<Vec<String>, Self::Error>;
-    fn reload(&self) -> Result<(), Self::Error>;
+    async fn get_post_content(&self, id: u64) -> Result<Option<Post>, Self::Error>;
+    async fn query_post_metadata(
+        &self,
+        query: StorageQuery,
+    ) -> Result<Vec<PostMetadata>, Self::Error>;
+    async fn query_serie(&self, query: StorageQuery) -> Result<Vec<SerieMetadata>, Self::Error>;
+    async fn query_category(&self, query: StorageQuery) -> Result<Vec<String>, Self::Error>;
+    async fn reload(&self) -> Result<(), Self::Error>;
 }
 
 #[derive(Debug)]

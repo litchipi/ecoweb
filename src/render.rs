@@ -1,3 +1,4 @@
+// TODO    Replace with tokio::sync::RwLock -> Make the whole Render struct async
 use parking_lot::RwLock;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -14,17 +15,19 @@ use crate::{
     post::{Post, PostMetadata, SerieMetadata},
 };
 
+use self::markdown::MarkdownRenderer;
+
 pub mod markdown;
 
 #[allow(unused_macros)]
 macro_rules! minify_js {
     ($src:expr, $dst:expr) => {
-        use minify_js::{minify, Session, TopLevelMode};
-        let code = std::fs::read(&$src)?;
+        use minify_js::{minify, TopLevelMode};
+        let code = tokio::fs::read(&$src).await?;
         let session = minify_js::Session::new();
         let mut out = Vec::new();
         minify(&session, TopLevelMode::Global, &code, &mut out).unwrap();
-        std::fs::write($dst, out)?;
+        tokio::fs::write($dst, out).await?;
     };
 }
 
@@ -60,29 +63,28 @@ pub struct Render {
     post_template: String,
     post_list_template: String,
     index_template: String,
-    error_template: String,
-
-    #[cfg(feature = "hireme")]
-    pub hireme_template: String,
+    notification_template: String,
 
     #[allow(unused_variables)]
     pub config: Arc<Configuration>,
 }
 
 impl Render {
-    pub fn init(config: Arc<Configuration>) -> Result<Render, Errcode> {
+    pub async fn init(config: Arc<Configuration>) -> Result<Render, Errcode> {
         // TODO Once in a while, reload the template directory
         let mut tera =
             Tera::new(format!("{}/**/*.html", config.templates_dir.to_str().unwrap()).as_str())?;
         tera.register_filter("timestamp_convert", timestamp_to_date);
+        tera.register_filter("markdown_render", markdown_render);
 
-        Self::setup_css(&config)?;
-        Self::setup_scripts(&config)?;
+        Self::setup_css(&config).await?;
+        Self::setup_scripts(&config).await?;
 
         let mut base_context = Context::new();
 
         #[cfg(feature = "add-endpoint")]
-        crate::extensions::addendpoint::insert_additionnal_context(&config, &mut base_context)?;
+        crate::extensions::addendpoint::insert_additionnal_context(&config, &mut base_context)
+            .await?;
 
         base_context.insert("site", &config.site_config);
 
@@ -92,11 +94,7 @@ impl Render {
             post_template: get_template_from_cfg(&config, "post")?,
             post_list_template: get_template_from_cfg(&config, "post_list")?,
             index_template: get_template_from_cfg(&config, "index")?,
-            error_template: get_template_from_cfg(&config, "error")?,
-
-            #[cfg(feature = "hireme")]
-            hireme_template: get_template_from_cfg(&config, "hireme")?,
-
+            notification_template: get_template_from_cfg(&config, "notification")?,
             config,
         })
     }
@@ -147,8 +145,8 @@ impl Render {
 
     pub fn render_error<T: ToString>(&self, content: T) -> RenderedPage {
         let mut ctxt = self.base_context.clone();
-        ctxt.insert("error", &content.to_string());
-        match self.engine.read().render(&self.error_template, &ctxt) {
+        ctxt.insert("notif_h1", "Unexpected error occured");
+        match self.render_notification("Error", content.to_string().as_str(), ctxt) {
             Ok(r) => r,
             Err(e) => {
                 let mut errstr = format!("Error occured: {}<br/>", content.to_string());
@@ -157,6 +155,17 @@ impl Render {
                 format!("<html>{errstr}</html>")
             }
         }
+    }
+
+    pub fn render_notification(
+        &self,
+        title: &str,
+        content: &str,
+        mut ctxt: Context,
+    ) -> Result<RenderedPage, Errcode> {
+        ctxt.insert("notif_title", title);
+        ctxt.insert("notif_content", content);
+        self.render(&self.notification_template, &ctxt)
     }
 
     pub fn render(&self, template: &str, ctxt: &Context) -> Result<RenderedPage, Errcode> {
@@ -181,7 +190,7 @@ impl Render {
         Ok(rendered)
     }
 
-    pub fn setup_css(config: &Configuration) -> Result<(), Errcode> {
+    pub async fn setup_css(config: &Configuration) -> Result<(), Errcode> {
         let grass_opts = config.get_grass_options();
 
         for (outpath, scss_list) in config.scss.iter() {
@@ -197,7 +206,7 @@ impl Render {
             #[cfg(feature = "css_minify")]
             let out_css = minify_css(outpath.to_string(), &out_css)?;
 
-            std::fs::write(config.assets_dir.join(outpath), out_css)?;
+            tokio::fs::write(config.assets_dir.join(outpath), out_css).await?;
         }
 
         // Code.css
@@ -207,14 +216,15 @@ impl Render {
         let fpath = config.assets_dir.join("code.css");
         #[cfg(feature = "css_minify")]
         let code_css = minify_css(format!("{:?}", &fpath), &code_css)?;
-        std::fs::write(fpath, code_css)?;
+        tokio::fs::write(fpath, code_css).await?;
 
         Ok(())
     }
 
-    pub fn setup_scripts(config: &Configuration) -> Result<(), Errcode> {
-        for file in std::fs::read_dir(&config.scripts_dir)? {
-            let src = file?.path();
+    pub async fn setup_scripts(config: &Configuration) -> Result<(), Errcode> {
+        let mut all_files = tokio::fs::read_dir(&config.scripts_dir).await?;
+        while let Some(file) = all_files.next_entry().await? {
+            let src = file.path();
             if let Some(ext) = src.extension() {
                 let fname = src.file_name().unwrap();
                 #[cfg(feature = "js_minify")]
@@ -224,7 +234,7 @@ impl Render {
 
                 #[cfg(not(feature = "js_minify"))]
                 if ext == "js" {
-                    std::fs::copy(&src, config.assets_dir.join(fname))?;
+                    tokio::fs::copy(&src, config.assets_dir.join(fname)).await?;
                 }
             }
         }
@@ -255,4 +265,18 @@ pub fn timestamp_to_date(val: &Value, _: &HashMap<String, Value>) -> Result<Valu
     let date = chrono::NaiveDateTime::from_timestamp_opt(s, 0).unwrap();
     let val = tera::to_value(date.format("%d/%m/%Y").to_string())?;
     Ok(val)
+}
+
+pub fn markdown_render(val: &Value, _: &HashMap<String, Value>) -> Result<Value, tera::Error> {
+    let s = try_get_value!("markdown_render", "value", String, val)
+        .trim()
+        .to_string();
+    let md = MarkdownRenderer::init();
+    match md.render(s) {
+        Err(e) => {
+            log::error!("Error while rendering markdown in template:\n{e:?}");
+            Err(tera::Error::msg(format!("Markdown render error: {e:?}")))
+        }
+        Ok((s, _)) => Ok(tera::to_value(s)?),
+    }
 }

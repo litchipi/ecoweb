@@ -10,9 +10,6 @@ use std::sync::Arc;
 use loader::Loader;
 use render::Render;
 
-#[cfg(feature = "hot_reloading")]
-use actix_web::dev::Service;
-
 mod config;
 mod endpoints;
 mod errors;
@@ -21,6 +18,8 @@ mod loader;
 mod post;
 mod render;
 mod setup;
+
+// TODO    IMPORTANT    Rework hot_reloading
 
 use config::Configuration;
 
@@ -41,6 +40,10 @@ struct Args {
     /// Path to the directory where to store the generated assets
     #[arg(long = "out", default_value = "out")]
     assets_dir: PathBuf,
+
+    #[cfg(feature = "save-data")]
+    #[arg(short, long = "savedata")]
+    save_data_dir: PathBuf,
 }
 
 pub fn configure_services(
@@ -57,19 +60,25 @@ pub fn configure_services(
 async fn main() -> std::io::Result<()> {
     let args = Args::parse();
     let config = Configuration::from(args);
-    config.validate().expect("Invalid configuration");
+    config.validate().await.expect("Invalid configuration");
     config.init_logging();
-    setup::setup_files(&config).expect("Unable to setup files");
+    setup::setup_files(&config)
+        .await
+        .expect("Unable to setup files");
 
     let config = Arc::new(config);
     let port = config.server_port;
 
     let loader = Data::new(
-        loader::Loader::init(config.clone()).expect("Error while initialization of Loader"),
+        loader::Loader::init(config.clone())
+            .await
+            .expect("Error while initialization of Loader"),
     );
     let loader_cpy = loader.clone();
     let render = Data::new(
-        render::Render::init(config.clone()).expect("Error while initialization of Render"),
+        render::Render::init(config.clone())
+            .await
+            .expect("Error while initialization of Render"),
     );
 
     extensions::announce();
@@ -89,25 +98,6 @@ async fn main() -> std::io::Result<()> {
                     .add((header::CACHE_CONTROL, format!("max-age={MAX_AGE}")))
                     .add((header::AGE, "0")),
             );
-
-        #[cfg(feature = "hot_reloading")]
-        let app = {
-            let loader = loader.clone();
-            let render = render.clone();
-            let config = config.clone();
-            app.wrap_fn(move |req, srv| {
-                let path = req.path();
-                if path.starts_with("/post/")
-                    || (path == "/")
-                    || (path == "/allposts")
-                    || (path == "/hireme")
-                {
-                    setup::reload(&loader, &render, &config).expect("Unable to reload data");
-                }
-                srv.call(req)
-            })
-        };
-        // .wrap(protection::ProtectionMiddlewareBuilder::new(&config))
 
         app.app_data(render.clone())
             .app_data(loader.clone())

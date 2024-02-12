@@ -20,15 +20,15 @@ impl PostLoader {
     }
 
     /// Get the content of a post with its ID, stores to cache if possible
-    pub fn get(&self, id: u64) -> Result<Option<Post>, Errcode> {
-        let Some(post) = self.storage.get_post_content(id)? else {
+    pub async fn get(&self, id: u64) -> Result<Option<Post>, Errcode> {
+        let Some(post) = self.storage.get_post_content(id).await? else {
             return Ok(None);
         };
         Ok(Some(post))
     }
 
     /// Get all the most recent posts
-    pub fn get_recent(
+    pub async fn get_recent(
         &self,
         filter: PostFilter,
         reverse_order: bool,
@@ -43,11 +43,11 @@ impl PostLoader {
         };
         query.reverse_order = reverse_order;
         query.post_filter = filter;
-        Ok(self.storage.query_post_metadata(query)?)
+        Ok(self.storage.query_post_metadata(query).await?)
     }
 
     /// List of posts that fits into a given serie
-    pub fn list_posts_serie(
+    pub async fn list_posts_serie(
         &self,
         serie: String,
         mut add_filter: Vec<PostFilter>,
@@ -56,11 +56,11 @@ impl PostLoader {
         let mut query = StorageQuery::empty();
         query.reverse_order = false;
         query.post_filter = PostFilter::Combine(add_filter);
-        Ok(self.storage.query_post_metadata(query)?)
+        Ok(self.storage.query_post_metadata(query).await?)
     }
 
     /// List of posts that fits into a given category
-    pub fn list_posts_category(
+    pub async fn list_posts_category(
         &self,
         category: String,
         mut add_filter: Vec<PostFilter>,
@@ -73,6 +73,6 @@ impl PostLoader {
         query.reverse_order = true;
         query.post_filter = PostFilter::Combine(add_filter);
 
-        Ok(self.storage.query_post_metadata(query)?)
+        Ok(self.storage.query_post_metadata(query).await?)
     }
 }

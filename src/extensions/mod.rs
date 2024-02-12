@@ -14,14 +14,14 @@ pub mod humans;
 #[cfg(feature = "rss")]
 pub mod rss;
 
-#[cfg(feature = "hireme")]
-pub mod hireme;
-
 #[cfg(feature = "webring")]
 pub mod webring;
 
 #[cfg(feature = "add-endpoint")]
 pub mod addendpoint;
+
+#[cfg(feature = "save-data")]
+pub mod savedata;
 
 pub fn announce() {
     #[cfg(feature = "githook")]
@@ -33,14 +33,14 @@ pub fn announce() {
     #[cfg(feature = "humans-txt")]
     log::info!("Using extension humans.txt");
 
-    #[cfg(feature = "hireme")]
-    log::info!("Using extension hireme");
-
     #[cfg(feature = "webring")]
     log::info!("Using extension webring");
 
     #[cfg(feature = "add-endpoint")]
     log::info!("Using extension add-endpoint");
+
+    #[cfg(feature = "save-data")]
+    log::info!("Using extension save-data");
 }
 
 #[allow(unused_variables)]
@@ -58,12 +58,12 @@ pub fn configure(cfg: &Configuration, rdr: &Render, srv: &mut ServiceConfig) {
     #[cfg(feature = "humans-txt")]
     srv.service(humans::get_humans);
 
-    #[cfg(feature = "hireme")]
-    srv.service(hireme::get_hireme);
-
     #[cfg(feature = "add-endpoint")]
     srv.configure(|srv| {
         addendpoint::configure_add_endpoints(cfg, rdr, srv)
             .expect("Unable to configure additionnal endpoints")
     });
+
+    #[cfg(feature = "save-data")]
+    srv.service(savedata::post_savedata);
 }

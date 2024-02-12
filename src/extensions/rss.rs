@@ -16,11 +16,14 @@ pub async fn get_rss_feed(ldr: Data<Loader>, rdr: Data<Render>) -> HttpResponse 
         header::CONTENT_TYPE,
         header::HeaderValue::from_str(header::ContentType(mime::TEXT_XML).essence_str()).unwrap(),
     );
-    reply(rss_feed(&ldr, &rdr), &rdr, Some(add_headers))
+    reply(rss_feed(&ldr, &rdr).await, &rdr, Some(add_headers))
 }
 
-fn rss_feed(ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
-    let all_posts = ldr.posts.get_recent(PostFilter::NoFilter, true, None)?;
+async fn rss_feed(ldr: &Loader, rdr: &Render) -> Result<String, Errcode> {
+    let all_posts = ldr
+        .posts
+        .get_recent(PostFilter::NoFilter, true, None)
+        .await?;
     let rendered = render_rss_feed(rdr, all_posts);
     Ok(rendered)
 }

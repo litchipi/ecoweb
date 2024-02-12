@@ -3,11 +3,12 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+// TODO    IMPORTANT     SECURITY     Check write permissions on data directory
+//    If write permissions enabled on this directory, throw an error
+//    except if dev feature is on.
+
 #[cfg(feature = "githook")]
 use crate::extensions::githook::GithookConfig;
-
-#[cfg(feature = "hireme")]
-use crate::extensions::hireme::HiremeConfig;
 
 #[cfg(feature = "webring")]
 use crate::extensions::webring::WebringConfig;
@@ -55,8 +56,13 @@ pub struct Configuration {
     #[serde(skip)]
     pub data_dir: PathBuf,
 
+    // Extensions
     #[cfg(feature = "add-endpoint")]
     pub add_endpoints: HashMap<String, PathBuf>,
+
+    #[serde(skip)]
+    #[cfg(feature = "save-data")]
+    pub save_data_dir: PathBuf,
 }
 
 impl From<Args> for Configuration {
@@ -88,6 +94,10 @@ impl From<Args> for Configuration {
                 .map(|p| args.data_dir.join(p))
                 .collect(),
 
+            // Extensions
+            #[cfg(feature = "save-data")]
+            save_data_dir: args.save_data_dir,
+
             // Static configs
             ..config
         }
@@ -95,7 +105,7 @@ impl From<Args> for Configuration {
 }
 
 impl Configuration {
-    pub fn validate(&self) -> Result<(), Errcode> {
+    pub async fn validate(&self) -> Result<(), Errcode> {
         self.storage_cfg.validate()?;
         if !self.site_config_file.exists() {
             return Err(Errcode::PathDoesntExist(
@@ -123,7 +133,7 @@ impl Configuration {
                 return Err(Errcode::PathDoesntExist("add asset", asset.clone()));
             }
         }
-        std::fs::create_dir_all(&self.assets_dir)?;
+        tokio::fs::create_dir_all(&self.assets_dir).await?;
         Ok(())
     }
 
@@ -164,15 +174,15 @@ pub struct SiteConfig {
     #[cfg(feature = "webring")]
     pub webring: WebringConfig,
 
-    #[cfg(feature = "hireme")]
-    pub hireme: HiremeConfig,
-
     #[cfg(feature = "humans-txt")]
     #[serde(default)]
     pub humans_txt: String,
 
     #[cfg(feature = "add-endpoint")]
     pub additionnal_context: HashMap<String, PathBuf>,
+
+    #[cfg(feature = "save-data")]
+    pub allowed_savedata_tokens: Vec<String>,
 }
 
 impl SiteConfig {
@@ -188,12 +198,6 @@ impl SiteConfig {
 
         #[cfg(feature = "humans-txt")]
         generate_humans_txt(&mut site_config);
-
-        #[cfg(feature = "hireme")]
-        site_config
-            .hireme
-            .convert_html(root)
-            .expect("Error while converting hireme section to HTML");
 
         SiteConfig {
             favicon: root.join(site_config.favicon),

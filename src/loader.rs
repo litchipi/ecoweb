@@ -20,8 +20,8 @@ pub struct Loader {
 }
 
 impl Loader {
-    pub fn init(config: Arc<Configuration>) -> Result<Loader, Errcode> {
-        let storage = Storage::init(&config)?;
+    pub async fn init(config: Arc<Configuration>) -> Result<Loader, Errcode> {
+        let storage = Storage::init(&config).await?;
         Ok(Loader {
             posts: Arc::new(post_loader::PostLoader::init(config, storage.clone())),
             storage,
@@ -29,8 +29,8 @@ impl Loader {
     }
 
     #[allow(dead_code)]
-    pub fn reload(&self) -> Result<(), Errcode> {
-        self.storage.reload()?;
+    pub async fn reload(&self) -> Result<(), Errcode> {
+        self.storage.reload().await?;
         Ok(())
     }
 
@@ -39,22 +39,22 @@ impl Loader {
         Ok(())
     }
 
-    pub fn get_all_categories(&self) -> Result<Vec<String>, Errcode> {
+    pub async fn get_all_categories(&self) -> Result<Vec<String>, Errcode> {
         let query = StorageQuery::empty();
-        Ok(self.storage.query_category(query)?)
+        Ok(self.storage.query_category(query).await?)
     }
 
-    pub fn get_all_series(&self) -> Result<Vec<SerieMetadata>, Errcode> {
+    pub async fn get_all_series(&self) -> Result<Vec<SerieMetadata>, Errcode> {
         let mut query = StorageQuery::empty();
         query.reverse_order = true; // Get newly finished first
-        Ok(self.storage.query_serie(query)?)
+        Ok(self.storage.query_serie(query).await?)
     }
 
-    pub fn get_serie_md(&self, slug: String) -> Result<Option<SerieMetadata>, Errcode> {
+    pub async fn get_serie_md(&self, slug: String) -> Result<Option<SerieMetadata>, Errcode> {
         let mut query = StorageQuery::empty();
         query.limit = 1;
         query.serie_slug = Some(slug);
-        Ok(self.storage.query_serie(query)?.into_iter().next())
+        Ok(self.storage.query_serie(query).await?.into_iter().next())
     }
 }
 

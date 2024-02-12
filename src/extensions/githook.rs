@@ -74,7 +74,7 @@ async fn git_webhook(
             .body(format!("Error while fetching latest data: {e:?}"));
     }
 
-    match reload(&ldr, &rdr, &cfg) {
+    match reload(&ldr, &rdr, &cfg).await {
         Err(e) => HttpResponse::InternalServerError().body(format!("{e:?}")),
         Ok(()) => HttpResponse::Ok().body(format!("Done in {:?}", t.elapsed())),
     }
