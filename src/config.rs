@@ -201,7 +201,6 @@ impl SiteConfig {
 
         SiteConfig {
             favicon: root.join(site_config.favicon),
-            og_image: site_config.og_image.map(|i| root.join(i)),
             ..site_config
         }
     }

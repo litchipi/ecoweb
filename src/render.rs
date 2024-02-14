@@ -181,6 +181,8 @@ impl Render {
             match minify_html_onepass::in_place_str(&mut rendered, &cfg) {
                 Ok(minified) => minified.to_string(),
                 Err(e) => {
+                    let _ =
+                        std::fs::write(self.config.assets_dir.join("minify_err.html"), &rendered);
                     log::error!("Error while minifying: {:?}", e);
                     log::error!("{:?}", rendered.get((e.position - 50)..(e.position + 50)));
                     error_message(format!("Minifying HTML error: {:?}", e))

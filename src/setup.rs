@@ -9,7 +9,7 @@ pub async fn setup_files(config: &Configuration) -> Result<(), Errcode> {
 
     tokio::fs::copy(
         &config.site_config.favicon,
-        config.assets_dir.join("favicon"),
+        config.assets_dir.join("favicon.ico"),
     )
     .await?;
 
