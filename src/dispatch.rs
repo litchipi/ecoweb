@@ -1,3 +1,4 @@
+use actix_web::dev::fn_factory;
 use actix_web::web::{self, Data, ServiceConfig};
 use actix_web::HttpRequest;
 use serde::{Deserialize, Serialize};
@@ -14,7 +15,7 @@ pub enum UrlBuildMethod {
 
 macro_rules! create_endpoint {
     ($config:expr, $ptype:expr) => {
-        move |(req, ldr, rdr): (RequestParams, Data<Storage>, Data<Render>)| {
+        move |(req, ldr, rdr): (HttpRequest, Data<Storage>, Data<Render>)| {
             let ptype = $ptype.clone();
             let default_lang = $config.default_lang.clone();
             async {
@@ -25,6 +26,8 @@ macro_rules! create_endpoint {
                     } else {
                         ptype.build_query(&req)
                     }
+                } else {
+                    ptype.build_query(&req)
                 };
 
                 if let Some(page) = rdr.get_cache(&content_query) {
@@ -33,13 +36,13 @@ macro_rules! create_endpoint {
                     let (metadata, markdown) = if !ldr.has_changed(&content_query) {
                         ldr.query_cache(&content_query)
                     } else {
-                        ldr.query(&content_query)
+                        ldr.query(&content_query).page_content().unwrap()
                     };
                     rdr.add_template(&ldr, &ptype, &metadata);
-                    let mut ctxt = rdr.build_context(&ldr, metadata, &ptype);
+                    let mut ctxt = rdr.build_context(&ldr, &metadata, &ptype);
                     let html_content = render_markdown(markdown, &mut ctxt);
-                    rdr.render_content(html_content, &ctxt)
-                };
+                    rdr.render_content(html_content, &metadata, &ptype, &ctxt)
+                }
             }
         }
     };
@@ -57,16 +60,7 @@ pub fn create_endpoints(cfg: &Config, app: &mut ServiceConfig) {
             web::get().to(
                 create_endpoint!(cfg, ptype)
             )
-        )
-    }
-
-    for endpoint in cfg.upload_endpoints.iter() {
-        app.route(
-            endpoint.route.as_str(),
-            web::post().to(
-                todo!() // Create an upload route
-            )
-        )
+        );
     }
 
     // TODO    Create upload routes
