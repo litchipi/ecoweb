@@ -1,22 +1,40 @@
-#![allow(dead_code, unreachable_code)]
+use actix_web::middleware::{Compress, Logger};
+use actix_web::{web::Data, App, HttpServer};
 
+mod errors;
 mod page;
 mod storage;
 mod render;
-mod dispatch;
 mod config;
-mod upload;
+mod routes;
+mod cache;
 
-fn main() {
-    // Get path from args, toml from path, config from toml
-    let mut config = config::Config::init();
-    config.override_env_vars();
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    let config = config::Config::init();
+    config.setup_logging();
+
     let storage = storage::Storage::init(&config);
-    let render = render::Render::init(&storage, &config);
+    let render = Data::new(render::Render::init(&storage, &config));
+    let storage = Data::new(storage);
 
-    let mut app = config.setup_app_base();
-    dispatch::create_endpoints(&config, &mut app);
-    dispatch::setup_static_files_endpoint(&config, &mut app);
-    // app.app_data(Data::new(storage));
-    // app.app_data(Data::new(render));
+    let port = config.server_port;
+
+    let srv = HttpServer::new(move || {
+        let app = App::new()
+            .wrap(Compress::default())
+            .wrap(Logger::new("%s | %r (%bb in %Ts) from %a"))
+            .wrap(config.get_default_headers())
+            // TODO    Add base context for template rendering
+            .app_data(storage.clone())
+            .app_data(render.clone());
+        app.configure(|app| routes::configure(&config, app))
+    });
+    let srv = srv
+        .bind(("0.0.0.0", port))?
+        .run();
+    
+    // log::info!("Serving content on http://0.0.0.0:{port}");
+    println!("Serving content on http://0.0.0.0:{port}");
+    srv.await
 }

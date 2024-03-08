@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 
-use actix_web::HttpRequest;
 use serde::{Deserialize, Serialize};
 
-use crate::storage::{ContextQuery, StorageQuery, StorageSlug};
-use crate::dispatch::UrlBuildMethod;
+use crate::routes::UrlBuildMethod;
+use crate::storage::{ContextQuery, StorageSlug};
 use crate::render::TemplateSlug;
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PageMetadata {
+    pub add_context: HashMap<String, ContextQuery>,
+}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PageType {
@@ -15,17 +18,18 @@ pub struct PageType {
     pub add_context: HashMap<String, ContextQuery>,
     pub default_template: TemplateSlug,
     url_build_method: UrlBuildMethod,
-    storage: StorageSlug,
+    pub storage: StorageSlug,
 }
 
 impl PageType {
-    pub fn build_query(&self, req: &HttpRequest) -> StorageQuery {
-        StorageQuery::content_from(&self.url_build_method, req)
-    }
-
-    pub fn build_query_with_lang(&self, req: &HttpRequest, langs: Vec<String>) -> StorageQuery {
-        let mut qry = StorageQuery::content_from(&self.url_build_method, req);
-        qry.lang_pref = Some(langs);
-        qry
+    pub fn test() -> PageType {
+        PageType {
+            route: "/toto".to_string(),
+            lang_detect: false,
+            add_context: HashMap::new(),
+            default_template: "index.html".to_string(),
+            url_build_method: UrlBuildMethod::ContentId,
+            storage: "dev".to_string(),
+        }
     }
 }

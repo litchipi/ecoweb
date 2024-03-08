@@ -1,17 +1,12 @@
 use actix_web::dev::fn_factory;
 use actix_web::web::{self, Data, ServiceConfig};
-use actix_web::HttpRequest;
+use actix_web::{FromRequest, HttpRequest, Responder};
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
+use crate::page::PageType;
 use crate::render::{Render, render_markdown};
 use crate::storage::Storage;
-
-#[derive(Serialize, Deserialize, Clone)]
-pub enum UrlBuildMethod {
-    ContentId,
-    FromMetadata(String),  // Metadata key
-}
 
 macro_rules! create_endpoint {
     ($config:expr, $ptype:expr) => {
@@ -46,33 +41,4 @@ macro_rules! create_endpoint {
             }
         }
     };
-}
-
-fn get_lang(req: &HttpRequest) -> Option<Vec<String>> {
-    // Get langs from headers or GET params
-    None
-}
-
-pub fn create_endpoints(cfg: &Config, app: &mut ServiceConfig) {
-    for ptype in cfg.page_types.iter() {
-        app.route(
-            ptype.route.as_str(),
-            web::get().to(
-                create_endpoint!(cfg, ptype)
-            )
-        );
-    }
-
-    // TODO    Create upload routes
-    // for endpoint in cfg.upload_endpoints.iter() {
-    //     app.route(
-    //         endpoint.route.as_str(),
-    //         web::post().to(
-    //             todo!() // Create an upload route
-    //         )
-    //     );
-    // }
-}
-
-pub fn setup_static_files_endpoint(cfg: &Config, app: &mut ServiceConfig) {
 }
