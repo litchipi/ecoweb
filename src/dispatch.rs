@@ -1,3 +1,5 @@
+use actix_web::web::{self, Data, ServiceConfig};
+use actix_web::HttpRequest;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
@@ -43,7 +45,7 @@ macro_rules! create_endpoint {
     };
 }
 
-fn get_lang(req: &RequestParams) -> Option<Vec<String>> {
+fn get_lang(req: &HttpRequest) -> Option<Vec<String>> {
     // Get langs from headers or GET params
     None
 }
@@ -66,6 +68,16 @@ pub fn create_endpoints(cfg: &Config, app: &mut ServiceConfig) {
             )
         )
     }
+
+    // TODO    Create upload routes
+    // for endpoint in cfg.upload_endpoints.iter() {
+    //     app.route(
+    //         endpoint.route.as_str(),
+    //         web::post().to(
+    //             todo!() // Create an upload route
+    //         )
+    //     );
+    // }
 }
 
 pub fn setup_static_files_endpoint(cfg: &Config, app: &mut ServiceConfig) {
