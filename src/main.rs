@@ -14,7 +14,7 @@ fn main() {
     let storage = storage::Storage::init(&config);
     let render = render::Render::init(&storage, &config);
 
-    let app = config.setup_app_base();
+    let mut app = config.setup_app_base();
     dispatch::create_endpoints(&config, &mut app);
     dispatch::setup_static_files_endpoint(&config, &mut app);
     // app.app_data(Data::new(storage));

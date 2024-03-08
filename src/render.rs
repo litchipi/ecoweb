@@ -1,16 +1,21 @@
+use tera::Context;
+
 use crate::{config::Config, storage::{Storage, PageMetadata, StorageQuery}, page::PageType};
 
 pub type TemplateSlug = String;
 
 pub struct Render {
-    
+    base_context: Context,
 }
 
 impl Render {
     pub fn init(ldr: &Storage, cfg: &Config) -> Render {
         // Initialise the context
+        let base_context = Context::new();
         // Load additionnal context elements from storage, and insert it into base
-        Render { }
+        Render { 
+            base_context,
+        }
     }
 
     pub fn get_cache(&self, qry: &StorageQuery) -> Option<String> {
@@ -25,18 +30,18 @@ impl Render {
         // Add to template to engine if doesn't exist
     }
 
-    pub fn render_content(&self, body: String, md: &PageMetadata, page: &PageType) -> String {
+    pub fn render_content(&self, body: String, md: &PageMetadata, page: &PageType, ctxt: &Context) -> String {
         "<html>TODO</html>".to_string()
     }
 
     pub fn build_context(&self, ldr: &Storage, md: &PageMetadata, page: &PageType) -> Context {
         let mut context = self.base_context.clone();
-        for add in page.add_context.iter() {
-            add.insert_context(ldr, &mut context);
+        for (name, data) in page.add_context.iter() {
+            data.insert_context(ldr, name, &mut context);
         }
 
-        for add in md.add_context.iter() {
-            add.insert_context(ldr, &mut context);
+        for (name, data) in md.add_context.iter() {
+            data.insert_context(ldr, name, &mut context);
         }
         context
     }

@@ -1,4 +1,8 @@
+use std::collections::HashMap;
+
+use actix_web::HttpRequest;
 use serde::{Deserialize, Serialize};
+use tera::Context;
 
 use crate::{config::Config, dispatch::UrlBuildMethod};
 
@@ -6,14 +10,17 @@ pub type StorageSlug = String;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum ContextQuery {
+    Plain(String),
     RecentPages(String, usize),
 }
 
 impl ContextQuery {
-    pub fn insert_context(&self, ldr: &Storage, ctxt: &mut Context) {
+    pub fn insert_context(&self, ldr: &Storage, name: &String, ctxt: &mut Context) {
         match self {
+            ContextQuery::Plain(d) => ctxt.insert(name, d),
             ContextQuery::RecentPages(ptype, nb) => {
                 let val = ldr.query(&StorageQuery::recent_pages(ptype.clone(), *nb));
+                // TODO    Add to context
             },
         }
     }
@@ -29,7 +36,7 @@ impl StorageQuery {
         StorageQuery::default()
     }
 
-    pub fn content_from(method: &UrlBuildMethod, req: &RequestParams) -> StorageQuery {
+    pub fn content_from(method: &UrlBuildMethod, req: &HttpRequest) -> StorageQuery {
         match method {
             UrlBuildMethod::ContentId => {
                 StorageQuery::default()
@@ -44,9 +51,18 @@ pub enum StorageData {
     RecentPages(Vec<PageMetadata>),
 }
 
+impl StorageData {
+    pub fn page_content(self) -> Option<(PageMetadata, String)> {
+        match self {
+            StorageData::PageContent { metadata, body } => Some((metadata, body)),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct PageMetadata {
-    pub add_context: Vec<ContextQuery>,
+    pub add_context: HashMap<String, ContextQuery>,
 }
 
 pub struct Storage {

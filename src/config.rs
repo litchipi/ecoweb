@@ -1,3 +1,4 @@
+use actix_web::web::ServiceConfig;
 use serde::{Deserialize, Serialize};
 
 use crate::page::PageType;
@@ -9,10 +10,17 @@ pub struct Config {
     pub default_lang: String,
     pub page_types: Vec<PageType>,
     pub upload_endpoints: Vec<UploadEndpoint>,
-    pub add_contexts: Vec<String>,
 }
 
 impl Config {
+    pub fn init() -> Config {
+        Config {
+            server_port: 8083,
+            default_lang: "fr".to_string(),
+            page_types: vec![],
+            upload_endpoints: vec![],
+        }
+    }
     pub fn override_env_vars(&mut self) {
         // Override some configurations with environment variables
     }
