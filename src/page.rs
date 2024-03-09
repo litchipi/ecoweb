@@ -11,22 +11,27 @@ pub struct PageMetadata {
     pub add_context: HashMap<String, ContextQuery>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PageType {
     pub route: String,
     pub lang_detect: bool,
     pub add_context: HashMap<String, ContextQuery>,
     pub default_template: TemplateSlug,
-    url_build_method: UrlBuildMethod,
+    pub url_build_method: UrlBuildMethod,
     pub storage: StorageSlug,
 }
 
 impl PageType {
     pub fn test() -> PageType {
+        let mut add_context = HashMap::new();
+        add_context.insert(
+            "page_type_test".to_string(),
+            ContextQuery::Plain(serde_json::Value::Number(23.into())),
+        );
         PageType {
             route: "/toto".to_string(),
             lang_detect: false,
-            add_context: HashMap::new(),
+            add_context,
             default_template: "index.html".to_string(),
             url_build_method: UrlBuildMethod::ContentId,
             storage: "dev".to_string(),

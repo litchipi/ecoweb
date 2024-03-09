@@ -1,6 +1,5 @@
 mod data_extract;
 mod request_handler;
-mod responder;
 mod upload;
 
 pub use upload::UploadEndpoint;
@@ -11,10 +10,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum UrlBuildMethod {
     ContentId,
-    FromMetadata(String), // Metadata key
 }
 
 pub fn configure(cfg: &Config, app: &mut ServiceConfig) {

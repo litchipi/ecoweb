@@ -15,17 +15,17 @@ pub enum ContextQuery {
 }
 
 impl ContextQuery {
-    pub fn insert_context(
+    pub async fn insert_context(
         &self,
-        ldr: &Storage,
+        storage: &Storage,
         name: &String,
         ctxt: &mut Context,
     ) -> Result<(), Errcode> {
         match self {
             ContextQuery::Plain(d) => ctxt.insert(name, d),
             ContextQuery::RecentPages(ptype, nb) => {
-                let val = ldr
-                    .query(&StorageQuery::recent_pages(&ptype, *nb))
+                let val = storage
+                    .query(&StorageQuery::recent_pages(&ptype, *nb)).await
                     .recent_pages()
                     .ok_or(Errcode::NoRecentPagesFound(ptype.clone()))?;
                 ctxt.insert(name, &val);

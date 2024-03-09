@@ -1,9 +1,17 @@
-use actix_web::Handler;
-use std::future::Ready;
+use actix_web::body::BoxBody;
+use actix_web::{Handler, HttpResponse};
+use tera::Context;
+use std::pin::Pin;
+use std::future::Future;
+use std::collections::HashMap;
 
 use super::data_extract::RequestArgs;
-use super::responder::RequestReponder;
+use crate::errors::Errcode;
 use crate::page::PageType;
+use crate::render::Render;
+use crate::storage::{Storage, StorageQuery};
+use crate::storage::ContextQuery;
+use crate::routes::UrlBuildMethod;
 
 #[derive(Clone)]
 pub struct PageHandler {
@@ -11,18 +19,88 @@ pub struct PageHandler {
 }
 
 impl Handler<RequestArgs> for PageHandler {
-    type Output = RequestReponder;
-    type Future = Ready<Self::Output>;
+    type Output = HttpResponse<BoxBody>;
+    type Future = Pin<Box<dyn Future<Output = Self::Output>>>;
 
+    // Function called every time we have a request to handle
     fn call(&self, args: RequestArgs) -> Self::Future {
-        std::future::ready(RequestReponder::create(&self.ptype, args))
+        let storage_query = match self.ptype.url_build_method {
+            UrlBuildMethod::ContentId => {
+                let id = args.get_query_id(&self.ptype);
+                StorageQuery::content(&self.ptype.storage, id)
+            },
+        };
+        Box::pin(Self::respond(storage_query, self.ptype.add_context.clone(), args))
     }
 }
 
 impl PageHandler {
+    // Function called on initialization for each worker
     pub fn create(ptype: &PageType) -> PageHandler {
         PageHandler {
             ptype: ptype.clone(),
+        }
+    }
+
+    pub async fn respond(
+        mut qry: StorageQuery, // Content query
+        add_ctxt: HashMap<String, ContextQuery>,
+        args: RequestArgs,
+    ) -> HttpResponse<BoxBody> {
+        if !args.storage.has_changed(&qry).await {
+            if let Some(cached) = args.render.get_cache(&qry) {
+                return Self::build_response(&args.render, Ok(cached)).await;
+            }
+        }
+
+        // Build context
+        let mut ctxt = args.base_context.as_ref().clone();
+        for (name, data) in add_ctxt {
+            if let Err(e) = data.insert_context(&args.storage, &name, &mut ctxt).await {
+                return Self::error(&args.render, e).await;
+            }
+        }
+
+        // Fine tune content query
+        if let Some(lang) = args.lang {
+            qry.set_lang(lang);
+        }
+
+        // TODO    Check if template is already loaded in engine or not
+        // TODO    Load template from storage if not loaded, and add to engine
+
+        Self::build_response(&args.render,
+            Self::handle_request(qry, &args.render, &args.storage, ctxt).await
+        ).await
+    }
+
+    pub async fn handle_request(qry: StorageQuery, render: &Render, storage: &Storage, mut ctxt: Context) -> Result<String, Errcode> {
+        let (metadata, body) = storage
+            .query(&qry).await
+            .page_content().ok_or(Errcode::WrongStorageData("PageContent"))?;
+
+        for (name, data) in metadata.add_context.iter() {
+            data.insert_context(storage, name, &mut ctxt).await?;
+        }
+        ctxt.insert("page-content", &body);
+
+        // TODO    Render post based on data
+        // TODO    Handle any error case
+        Ok(format!("{ctxt:?}"))
+    }
+
+    pub async fn error(render: &Render, e: Errcode) -> HttpResponse<BoxBody> {
+        // TODO    Error codes depending on error variants
+        // TODO    Try to render error page
+        //    If template doesn't exist, or fails to render, display a pure HTML message
+        HttpResponse::InternalServerError().body(format!("{e:?}"))
+    }
+
+    pub async fn build_response(render: &Render, body: Result<String, Errcode>) -> HttpResponse {
+        // TODO    Additionnal headers here
+        match body {
+            Ok(text) => HttpResponse::Ok().body(text),
+            Err(e) => Self::error(render, e).await,
         }
     }
 }

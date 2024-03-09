@@ -16,6 +16,7 @@ async fn main() -> std::io::Result<()> {
 
     let storage = Data::new(storage::Storage::init(&config));
     let render = Data::new(render::Render::init(&config));
+    let base_context = Data::new(config.base_templating_context());
 
     let port = config.server_port;
 
@@ -24,11 +25,15 @@ async fn main() -> std::io::Result<()> {
             .wrap(Compress::default())
             .wrap(Logger::new("%s | %r (%bb in %Ts) from %a"))
             .wrap(config.get_default_headers())
-            // TODO    Add base context for template rendering
+            .app_data(base_context.clone())
             .app_data(storage.clone())
             .app_data(render.clone());
-        app.configure(|app| routes::configure(&config, app))
+
+        app.configure(|app| {
+            routes::configure(&config, app);
+        })
     });
+
     let srv = srv.bind(("0.0.0.0", port))?.run();
 
     // log::info!("Serving content on http://0.0.0.0:{port}");

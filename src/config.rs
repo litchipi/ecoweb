@@ -1,6 +1,7 @@
 use actix_web::http::header;
 use actix_web::middleware::DefaultHeaders;
 use serde::{Deserialize, Serialize};
+use tera::Context;
 
 use crate::page::PageType;
 use crate::routes::UploadEndpoint;
@@ -14,7 +15,8 @@ pub struct Config {
 }
 
 impl Config {
-    // TODO    Get from args, or environment variables
+    // TODO    Get path from args, or environment variables
+    // TODO    Deserialize config from file
     pub fn init() -> Config {
         Config {
             server_port: 8083,
@@ -39,5 +41,10 @@ impl Config {
             ))
         // .add((header::CACHE_CONTROL, format!("max-age={MAX_AGE}")))
         // .add((header::AGE, "0")),
+    }
+
+    pub fn base_templating_context(&self) -> Context {
+        // TODO    Allow to put context data from inside the config file
+        Context::new()
     }
 }
