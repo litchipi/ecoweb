@@ -16,7 +16,7 @@ pub struct Render {
 }
 
 impl Render {
-    pub fn init(ldr: &Storage, cfg: &Config) -> Render {
+    pub fn init(cfg: &Config) -> Render {
         // TODO    Create base context
         let base_context = Context::new();
         Render { 

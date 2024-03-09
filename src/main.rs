@@ -14,9 +14,8 @@ async fn main() -> std::io::Result<()> {
     let config = config::Config::init();
     config.setup_logging();
 
-    let storage = storage::Storage::init(&config);
-    let render = Data::new(render::Render::init(&storage, &config));
-    let storage = Data::new(storage);
+    let storage = Data::new(storage::Storage::init(&config));
+    let render = Data::new(render::Render::init(&config));
 
     let port = config.server_port;
 
