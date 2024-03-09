@@ -1,7 +1,7 @@
-use std::future::Ready;
-use actix_web::{FromRequest, HttpRequest};
 use actix_web::dev::Payload;
 use actix_web::web::Data;
+use actix_web::{FromRequest, HttpRequest};
+use std::future::Ready;
 
 use crate::render::Render;
 use crate::storage::Storage;
@@ -14,9 +14,7 @@ pub struct RequestArgs {
     // TODO    Add base context
 }
 
-async fn test() {
-    
-}
+async fn test() {}
 
 impl FromRequest for RequestArgs {
     type Error = actix_web::Error;
@@ -24,8 +22,8 @@ impl FromRequest for RequestArgs {
 
     // TODO    Handle error cases
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        let storage : Option<&Data<Storage>> = req.app_data();
-        let render : Option<&Data<Render>> = req.app_data();
+        let storage: Option<&Data<Storage>> = req.app_data();
+        let render: Option<&Data<Render>> = req.app_data();
 
         // HttpRequest HTTP/1.1 GET:/toto
         //   headers:

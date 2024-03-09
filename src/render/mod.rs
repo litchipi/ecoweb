@@ -1,10 +1,10 @@
 use tera::Context;
 
-use crate::config::Config;
-use crate::page::PageType;
-use crate::errors::Errcode;
-use crate::storage::{PageMetadata, Storage, StorageQuery};
 use crate::cache::Cache;
+use crate::config::Config;
+use crate::errors::Errcode;
+use crate::page::PageType;
+use crate::storage::{PageMetadata, Storage, StorageQuery};
 
 pub type TemplateSlug = String;
 
@@ -19,7 +19,7 @@ impl Render {
     pub fn init(cfg: &Config) -> Render {
         // TODO    Create base context
         let base_context = Context::new();
-        Render { 
+        Render {
             base_context,
             cache: Cache::empty(),
         }
@@ -37,12 +37,23 @@ impl Render {
         // TODO    Add template to engine
     }
 
-    pub fn render_content(&self, body: String, md: &PageMetadata, page: &PageType, ctxt: &Context) -> String {
+    pub fn render_content(
+        &self,
+        body: String,
+        md: &PageMetadata,
+        page: &PageType,
+        ctxt: &Context,
+    ) -> String {
         // TODO    Render body from template using the engine
         "<html>TODO</html>".to_string()
     }
 
-    pub fn build_context(&self, ldr: &Storage, md: &PageMetadata, page: &PageType) -> Result<Context, Errcode> {
+    pub fn build_context(
+        &self,
+        ldr: &Storage,
+        md: &PageMetadata,
+        page: &PageType,
+    ) -> Result<Context, Errcode> {
         let mut context = self.base_context.clone();
         for (name, data) in page.add_context.iter() {
             data.insert_context(ldr, name, &mut context)?;

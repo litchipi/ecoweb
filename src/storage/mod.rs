@@ -1,13 +1,13 @@
-use crate::config::Config;
 use crate::cache::Cache;
+use crate::config::Config;
 
-mod query;
-mod data;
 mod context;
+mod data;
+mod query;
 
-pub use query::StorageQuery;
-pub use data::{StorageData, PageMetadata};
 pub use context::ContextQuery;
+pub use data::{PageMetadata, StorageData};
+pub use query::StorageQuery;
 
 pub type StorageSlug = String;
 
@@ -23,7 +23,9 @@ pub struct Storage {
 
 impl Storage {
     pub fn init(config: &Config) -> Storage {
-        Storage { cache: Cache::empty() }
+        Storage {
+            cache: Cache::empty(),
+        }
     }
 
     pub fn query(&self, qry: &StorageQuery) -> StorageData {

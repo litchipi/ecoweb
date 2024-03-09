@@ -19,7 +19,7 @@ impl Config {
         Config {
             server_port: 8083,
             default_lang: "fr".to_string(),
-            page_types: vec![ PageType::test() ],
+            page_types: vec![PageType::test()],
             upload_endpoints: vec![],
         }
     }
@@ -37,7 +37,7 @@ impl Config {
                 header::PERMISSIONS_POLICY,
                 "geolocation=(), camera=(), microphone=()",
             ))
-            // .add((header::CACHE_CONTROL, format!("max-age={MAX_AGE}")))
-            // .add((header::AGE, "0")),
+        // .add((header::CACHE_CONTROL, format!("max-age={MAX_AGE}")))
+        // .add((header::AGE, "0")),
     }
 }

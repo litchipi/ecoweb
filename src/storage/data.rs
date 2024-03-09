@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use super::ContextQuery;
 
@@ -11,7 +11,10 @@ pub struct PageMetadata {
 #[derive(Debug)]
 pub enum StorageData {
     RecentPages(Vec<PageMetadata>),
-    PageContent { metadata: PageMetadata, body: String },
+    PageContent {
+        metadata: PageMetadata,
+        body: String,
+    },
     // TODO    Add all cases of query
     // - Page metadata
     // - Series metadata

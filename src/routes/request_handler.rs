@@ -1,10 +1,9 @@
-use std::future::Ready;
 use actix_web::Handler;
+use std::future::Ready;
 
-use crate::page::PageType;
 use super::data_extract::RequestArgs;
 use super::responder::RequestReponder;
-
+use crate::page::PageType;
 
 #[derive(Clone)]
 pub struct PageHandler {

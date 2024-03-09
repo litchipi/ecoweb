@@ -1,6 +1,5 @@
-
-mod request_handler;
 mod data_extract;
+mod request_handler;
 mod responder;
 mod upload;
 
@@ -15,7 +14,7 @@ use crate::config::Config;
 #[derive(Serialize, Deserialize, Clone)]
 pub enum UrlBuildMethod {
     ContentId,
-    FromMetadata(String),  // Metadata key
+    FromMetadata(String), // Metadata key
 }
 
 pub fn configure(cfg: &Config, app: &mut ServiceConfig) {

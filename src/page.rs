@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::render::TemplateSlug;
 use crate::routes::UrlBuildMethod;
 use crate::storage::{ContextQuery, StorageSlug};
-use crate::render::TemplateSlug;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PageMetadata {

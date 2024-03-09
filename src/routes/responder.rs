@@ -1,8 +1,8 @@
 use actix_web::{body::BoxBody, HttpRequest, HttpResponse, Responder};
 use tera::Context;
 
-use crate::page::PageType;
 use crate::errors::Errcode;
+use crate::page::PageType;
 use crate::storage::StorageQuery;
 
 use super::data_extract::RequestArgs;

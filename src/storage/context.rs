@@ -1,5 +1,5 @@
-use tera::Context;
 use serde::{Deserialize, Serialize};
+use tera::Context;
 
 use crate::errors::Errcode;
 
@@ -15,7 +15,12 @@ pub enum ContextQuery {
 }
 
 impl ContextQuery {
-    pub fn insert_context(&self, ldr: &Storage, name: &String, ctxt: &mut Context) -> Result<(), Errcode> {
+    pub fn insert_context(
+        &self,
+        ldr: &Storage,
+        name: &String,
+        ctxt: &mut Context,
+    ) -> Result<(), Errcode> {
         match self {
             ContextQuery::Plain(d) => ctxt.insert(name, d),
             ContextQuery::RecentPages(ptype, nb) => {
@@ -24,7 +29,7 @@ impl ContextQuery {
                     .recent_pages()
                     .ok_or(Errcode::NoRecentPagesFound(ptype.clone()))?;
                 ctxt.insert(name, &val);
-            },
+            }
         }
         Ok(())
     }

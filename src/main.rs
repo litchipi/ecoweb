@@ -1,13 +1,13 @@
 use actix_web::middleware::{Compress, Logger};
 use actix_web::{web::Data, App, HttpServer};
 
+mod cache;
+mod config;
 mod errors;
 mod page;
-mod storage;
 mod render;
-mod config;
 mod routes;
-mod cache;
+mod storage;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -29,10 +29,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(render.clone());
         app.configure(|app| routes::configure(&config, app))
     });
-    let srv = srv
-        .bind(("0.0.0.0", port))?
-        .run();
-    
+    let srv = srv.bind(("0.0.0.0", port))?.run();
+
     // log::info!("Serving content on http://0.0.0.0:{port}");
     println!("Serving content on http://0.0.0.0:{port}");
     srv.await
