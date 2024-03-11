@@ -1,7 +1,12 @@
-#[derive(Debug)]
+use std::sync::Arc;
+
+#[derive(Clone, Debug)]
 pub enum Errcode {
+    // General
+    FilesystemError(&'static str, Arc<std::io::Error>),
+
     // Configuration
-    ConfigFileRead(std::io::Error),
+    ConfigFileRead(Arc<std::io::Error>),
 
     // ContextQuery
     NoRecentPagesFound(String),
@@ -10,8 +15,11 @@ pub enum Errcode {
     ContentIdParsing(std::num::ParseIntError),
     ParameterNotInUrl,
 
-    // StorageData
+    // Storage
     WrongStorageData(&'static str),
+    LangNotSupported(Vec<String>),
+    DataNotFound(String),
+    ContentMalformed(&'static str),
 
     // Serialization
     TomlDecode(&'static str, toml::de::Error),

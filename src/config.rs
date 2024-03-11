@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use actix_web::http::header;
 use actix_web::middleware::DefaultHeaders;
@@ -30,13 +31,16 @@ pub struct Config {
 
     #[serde(default)]
     pub upload_endpoints: HashMap<String, UploadEndpoint>,
+
+    #[cfg(feature = "storage-local")]
+    pub local_storage: crate::storage::backend::local::LocalStorage,
 }
 
 impl Config {
     pub fn load() -> Result<Config, Errcode> {
         let args = Arguments::parse();
         let config_str = std::fs::read_to_string(args.config_file)
-            .map_err(|e| Errcode::ConfigFileRead(e))?;
+            .map_err(|e| Errcode::ConfigFileRead(Arc::new(e)))?;
         let mut config : Config = toml::from_str(&config_str)
             .map_err(|e| Errcode::TomlDecode("config file", e))?;
 

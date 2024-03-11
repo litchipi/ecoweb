@@ -2,9 +2,9 @@ use tera::Context;
 
 use crate::cache::Cache;
 use crate::config::Config;
-use crate::page::PageType;
+use crate::page::{PageMetadata, PageType};
 use crate::errors::Errcode;
-use crate::storage::{PageMetadata, StorageQuery};
+use crate::storage::StorageQuery;
 
 pub type TemplateSlug = String;
 

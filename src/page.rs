@@ -6,8 +6,9 @@ use crate::render::TemplateSlug;
 use crate::routes::ContentQueryMethod;
 use crate::storage::{ContextQuery, StorageSlug};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PageMetadata {
+    #[serde(default)]
     pub add_context: HashMap<String, ContextQuery>,
 }
 

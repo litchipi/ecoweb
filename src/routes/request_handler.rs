@@ -84,8 +84,8 @@ impl PageHandler {
 
     pub async fn handle_request(qry: StorageQuery, render: &Render, storage: &Storage, mut ctxt: Context) -> Result<String, Errcode> {
         let (metadata, body) = storage
-            .query(&qry).await
-            .page_content().ok_or(Errcode::WrongStorageData("PageContent"))?;
+            .query(qry).await
+            .page_content()?;
 
         for (name, data) in metadata.add_context.iter() {
             data.insert_context(storage, name, &mut ctxt).await?;
@@ -93,7 +93,6 @@ impl PageHandler {
         ctxt.insert("page-content", &body);
 
         // TODO    Render post based on data
-        // TODO    Handle any error case
         Ok(format!("{ctxt:?}"))
     }
 

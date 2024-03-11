@@ -4,17 +4,17 @@ use crate::config::Config;
 mod context;
 mod data;
 mod query;
-mod backend;
+pub mod backend;
 
 pub use context::ContextQuery;
-pub use data::{PageMetadata, StorageData};
+pub use data::StorageData;
 pub use query::StorageQuery;
-use backend::{StorageBackend, LocalStorage};
+use backend::StorageBackend;
 
 pub type StorageSlug = String;
 
 #[cfg(feature = "storage-local")]
-pub type Storage = StorageImpl<LocalStorage>;
+pub type Storage = StorageImpl<backend::local::LocalStorage>;
 
 pub struct StorageImpl<T: StorageBackend> {
     cache: Cache<StorageQuery, StorageData>,
@@ -29,14 +29,14 @@ impl<T: StorageBackend> StorageImpl<T> {
         }
     }
 
-    pub async fn query(&self, qry: &StorageQuery) -> StorageData {
-        if let Some(data) = self.cache.get(qry) {
-            if !self.has_changed(qry).await {
+    pub async fn query(&self, qry: StorageQuery) -> StorageData {
+        if let Some(data) = self.cache.get(&qry) {
+            if !self.has_changed(&qry).await {
                 return data;
             }
         }
-        let data = self.backend.query(qry).await;
-        self.cache.add(qry.clone(), data.clone());
+        let data = self.backend.query(qry.clone()).await;
+        self.cache.add(qry, data.clone());
         data
     }
 

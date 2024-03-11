@@ -1,15 +1,9 @@
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-
-use super::ContextQuery;
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PageMetadata {
-    pub add_context: HashMap<String, ContextQuery>,
-}
+use crate::errors::Errcode;
+use crate::page::PageMetadata;
 
 #[derive(Clone, Debug)]
 pub enum StorageData {
+    Nothing,
     RecentPages(Vec<PageMetadata>),
     PageContent {
         metadata: PageMetadata,
@@ -20,20 +14,23 @@ pub enum StorageData {
     // - Series metadata
     // - Pages by tags
     // - Error code
+    Error(Errcode),
 }
 
 impl StorageData {
-    pub fn page_content(self) -> Option<(PageMetadata, String)> {
+    pub fn page_content(self) -> Result<(PageMetadata, String), Errcode> {
         match self {
-            StorageData::PageContent { metadata, body } => Some((metadata, body)),
-            _ => None,
+            StorageData::PageContent { metadata, body } => Ok((metadata, body)),
+            StorageData::Error(e) => Err(e),
+            _ => Err(Errcode::WrongStorageData("PageContent")),
         }
     }
 
-    pub fn recent_pages(self) -> Option<Vec<PageMetadata>> {
+    pub fn recent_pages(self) -> Result<Vec<PageMetadata>, Errcode> {
         match self {
-            StorageData::RecentPages(pages) => Some(pages),
-            _ => None,
+            StorageData::RecentPages(pages) => Ok(pages),
+            StorageData::Error(e) => Err(e),
+            _ => Err(Errcode::WrongStorageData("RecentPages")),
         }
     }
 }
