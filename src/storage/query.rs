@@ -12,7 +12,7 @@ impl StorageQuery {
         StorageQuery::default()
     }
 
-    pub fn content(slug: &String, id: u64) -> StorageQuery {
+    pub fn content(slug: &String, id: Option<u64>) -> StorageQuery {
         StorageQuery::default()
     }
 

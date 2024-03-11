@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_variables)]    // TODO    Remove once dev finished
 use actix_web::middleware::{Compress, Logger};
 use actix_web::{web::Data, App, HttpServer};
 
@@ -11,15 +12,14 @@ mod storage;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-
-    let test = storage::ContextQuery::RecentPages("toto".to_string(), 3);
-    let test2 = storage::ContextQuery::Plain(serde_json::json!("toto"));
-    println!("{}", toml::to_string(&test).unwrap());
-    println!("{}", toml::to_string(&test2).unwrap());
-    let mut hmap = std::collections::HashMap::new();
-    hmap.insert("test", test);
-    hmap.insert("test2", test2);
-    println!("{}", toml::to_string(&hmap).unwrap());
+    // let test = routes::ContentQueryMethod::FromSlug;
+    // let test2 = routes::ContentQueryMethod::ContentId("id".to_string());
+    // println!("{}", toml::to_string(&test).unwrap());
+    // println!("{}", toml::to_string(&test2).unwrap());
+    // let mut hmap = std::collections::HashMap::new();
+    // hmap.insert("test", test);
+    // hmap.insert("test2", test2);
+    // println!("{}", toml::to_string(&hmap).unwrap());
     
     let config = config::Config::load().expect("Unable to load server configuration");
     config.setup_logging();

@@ -7,6 +7,7 @@ use super::{Storage, StorageQuery};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "query", content = "args")]
+#[serde(rename_all = "snake_case")]
 pub enum ContextQuery {
     Plain(serde_json::Value),
     RecentPages(String, usize),

@@ -1,4 +1,5 @@
 use actix_web::body::BoxBody;
+use actix_web::web::Data;
 use actix_web::{Handler, HttpResponse};
 use tera::Context;
 use std::pin::Pin;
@@ -11,7 +12,7 @@ use crate::page::PageType;
 use crate::render::Render;
 use crate::storage::{Storage, StorageQuery};
 use crate::storage::ContextQuery;
-use crate::routes::UrlBuildMethod;
+use crate::routes::ContentQueryMethod;
 
 #[derive(Clone)]
 pub struct PageHandler {
@@ -24,11 +25,18 @@ impl Handler<RequestArgs> for PageHandler {
 
     // Function called every time we have a request to handle
     fn call(&self, args: RequestArgs) -> Self::Future {
-        let storage_query = match self.ptype.url_build_method {
-            UrlBuildMethod::ContentId => {
-                let id = args.get_query_id(&self.ptype);
-                StorageQuery::content(&self.ptype.storage, id)
+        let storage_query = match self.ptype.content_query {
+            ContentQueryMethod::ContentId(ref slug) => {
+                match args.get_query_id(slug) {
+                    Ok(id) => StorageQuery::content(&self.ptype.storage, Some(id)),
+                    Err(e) => {
+                        return Box::pin(Self::error(args.render, e));
+                    },
+                }
             },
+            ContentQueryMethod::FromSlug => {
+                StorageQuery::content(&self.ptype.storage, None)
+            }
         };
         Box::pin(Self::respond(storage_query, self.ptype.add_context.clone(), args))
     }
@@ -49,7 +57,7 @@ impl PageHandler {
     ) -> HttpResponse<BoxBody> {
         if !args.storage.has_changed(&qry).await {
             if let Some(cached) = args.render.get_cache(&qry) {
-                return Self::build_response(&args.render, Ok(cached)).await;
+                return Self::build_response(args.render, Ok(cached)).await;
             }
         }
 
@@ -57,7 +65,7 @@ impl PageHandler {
         let mut ctxt = args.base_context.as_ref().clone();
         for (name, data) in add_ctxt {
             if let Err(e) = data.insert_context(&args.storage, &name, &mut ctxt).await {
-                return Self::error(&args.render, e).await;
+                return Self::error(args.render, e).await;
             }
         }
 
@@ -69,7 +77,7 @@ impl PageHandler {
         // TODO    Check if template is already loaded in engine or not
         // TODO    Load template from storage if not loaded, and add to engine
 
-        Self::build_response(&args.render,
+        Self::build_response(args.render.clone(),
             Self::handle_request(qry, &args.render, &args.storage, ctxt).await
         ).await
     }
@@ -89,14 +97,13 @@ impl PageHandler {
         Ok(format!("{ctxt:?}"))
     }
 
-    pub async fn error(render: &Render, e: Errcode) -> HttpResponse<BoxBody> {
+    pub async fn error(render: Data<Render>, e: Errcode) -> HttpResponse<BoxBody> {
         // TODO    Error codes depending on error variants
-        // TODO    Try to render error page
-        //    If template doesn't exist, or fails to render, display a pure HTML message
-        HttpResponse::InternalServerError().body(format!("{e:?}"))
+        let body = render.render_error(e).await;
+        HttpResponse::InternalServerError().body(body)
     }
 
-    pub async fn build_response(render: &Render, body: Result<String, Errcode>) -> HttpResponse {
+    pub async fn build_response(render: Data<Render>, body: Result<String, Errcode>) -> HttpResponse {
         // TODO    Additionnal headers here
         match body {
             Ok(text) => HttpResponse::Ok().body(text),

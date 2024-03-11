@@ -1,9 +1,10 @@
-use actix_web::dev::Payload;
+
+use actix_web::dev::{Payload, Path, Url};
 use actix_web::web::Data;
 use actix_web::{FromRequest, HttpRequest};
 use tera::Context;
 
-use crate::page::PageType;
+use crate::errors::Errcode;
 use crate::render::Render;
 use crate::storage::Storage;
 
@@ -13,6 +14,7 @@ pub struct RequestArgs {
     pub storage: Data<Storage>,
     pub render: Data<Render>,
     pub base_context: Data<Context>,
+    pub match_infos: Path<Url>,
 }
 
 impl FromRequest for RequestArgs {
@@ -26,16 +28,22 @@ impl FromRequest for RequestArgs {
             storage: get_from_req(req),
             render: get_from_req(req),
             base_context: get_from_req(req),
+            match_infos: req.match_info().clone(),
         }))
     }
 }
 
 impl RequestArgs {
-    pub fn get_query_id(&self, ptype: &PageType) -> u64 {
-        // TODO    Get ID from route
-        // In page_type, define the route as /path/to/{id}/toto
-        // Register any data required in RequestArgs to be able to extract it
-        0
+    pub fn get_query_id(&self, slug: &String) -> Result<u64, Errcode> {
+        if let Some(id) = self.match_infos.get(slug) {
+            Ok(id.parse::<u64>().map_err(|e| Errcode::ContentIdParsing(e))?)
+        } else {
+           Err(Errcode::ParameterNotInUrl) 
+        }
+    }
+
+    pub async fn render_error(&self, err: Errcode) -> String {
+        self.render.render_error(err).await
     }
 }
 

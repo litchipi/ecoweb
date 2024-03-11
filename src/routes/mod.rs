@@ -10,11 +10,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
 
-// TODO IMPORTANT    Clean way to create a StorageQuery from a URL and a PageType
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "method", content = "args")]
 #[serde(rename_all = "snake_case")] 
-pub enum UrlBuildMethod {
-    ContentId,
+pub enum ContentQueryMethod {
+    // Get content ID from URL, with slug passed in parameter, has to be a number
+    ContentId(String),
+
+    #[default]
+    FromSlug,
 }
 
 pub fn configure(cfg: &Config, app: &mut ServiceConfig) {

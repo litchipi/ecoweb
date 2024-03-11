@@ -6,6 +6,10 @@ pub enum Errcode {
     // ContextQuery
     NoRecentPagesFound(String),
 
+    // Data extraction
+    ContentIdParsing(std::num::ParseIntError),
+    ParameterNotInUrl,
+
     // StorageData
     WrongStorageData(&'static str),
 
