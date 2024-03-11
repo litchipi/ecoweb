@@ -24,16 +24,20 @@ pub struct StorageImpl<T: StorageBackend> {
 impl<T: StorageBackend> StorageImpl<T> {
     pub fn init(config: &Config) -> StorageImpl<T> {
         StorageImpl {
-            cache: Cache::empty(),
+            cache: Cache::empty(1024), // TODO Get from config
             backend: T::init(config),
         }
     }
 
     pub async fn query(&self, qry: &StorageQuery) -> StorageData {
-        // TODO    Calls the "has_changed" functions of StorageBackend
-        // If not changed, get from cache
-        // Else, get from backend, and add to cache
-        self.backend.query(qry).await
+        if let Some(data) = self.cache.get(qry) {
+            if !self.has_changed(qry).await {
+                return data;
+            }
+        }
+        let data = self.backend.query(qry).await;
+        self.cache.add(qry.clone(), data.clone());
+        data
     }
 
     pub async fn has_changed(&self, qry: &StorageQuery) -> bool {

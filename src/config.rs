@@ -1,33 +1,60 @@
+use std::collections::HashMap;
+use std::path::PathBuf;
+
 use actix_web::http::header;
 use actix_web::middleware::DefaultHeaders;
 use serde::{Deserialize, Serialize};
+use clap::Parser;
 use tera::Context;
 
+use crate::errors::Errcode;
 use crate::page::PageType;
 use crate::routes::UploadEndpoint;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Parser)]
+struct Arguments {
+    #[arg(short, long)]
+    config_file: PathBuf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub server_port: u16,
     pub default_lang: String,
-    pub page_types: Vec<PageType>,
-    pub upload_endpoints: Vec<UploadEndpoint>,
+
+    #[serde(default)]
+    pub add_context: HashMap<String, serde_json::Value>,
+
+    #[serde(default)]
+    pub page_type: HashMap<String, PageType>,
+
+    #[serde(default)]
+    pub upload_endpoints: HashMap<String, UploadEndpoint>,
 }
 
 impl Config {
-    // TODO    Get path from args, or environment variables
-    // TODO    Deserialize config from file
-    pub fn init() -> Config {
-        Config {
-            server_port: 8083,
-            default_lang: "fr".to_string(),
-            page_types: vec![PageType::test()],
-            upload_endpoints: vec![],
+    pub fn load() -> Result<Config, Errcode> {
+        let args = Arguments::parse();
+        let config_str = std::fs::read_to_string(args.config_file)
+            .map_err(|e| Errcode::ConfigFileRead(e))?;
+        let mut config : Config = toml::from_str(&config_str)
+            .map_err(|e| Errcode::TomlDecode("config file", e))?;
+
+        for (slug, ptype) in config.page_type.iter_mut() {
+            if ptype.storage.is_empty() {
+                ptype.storage = slug.clone();
+            }
         }
+
+        Ok(config)
     }
 
     pub fn setup_logging(&self) {
-        // TODO    Setup logging
+        let mut builder = env_logger::Builder::new();
+        builder.filter_level(log::LevelFilter::Debug);
+        builder.parse_env("RUST_LOG");
+        builder.init();
+        log::debug!("Logging started");
     }
 
     pub fn get_default_headers(&self) -> DefaultHeaders {
@@ -44,7 +71,10 @@ impl Config {
     }
 
     pub fn base_templating_context(&self) -> Context {
-        // TODO    Allow to put context data from inside the config file
-        Context::new()
+        let mut ctxt = Context::new();
+        for (slug, data) in self.add_context.iter() {
+            ctxt.insert(slug, data);
+        }
+        ctxt
     }
 }

@@ -6,6 +6,7 @@ use crate::errors::Errcode;
 use super::{Storage, StorageQuery};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "query", content = "args")]
 pub enum ContextQuery {
     Plain(serde_json::Value),
     RecentPages(String, usize),

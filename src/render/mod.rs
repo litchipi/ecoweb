@@ -16,7 +16,7 @@ pub struct Render {
 impl Render {
     pub fn init(cfg: &Config) -> Render {
         Render {
-            cache: Cache::empty(),
+            cache: Cache::empty(1024), // TODO Get from config
         }
     }
 

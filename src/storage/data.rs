@@ -3,12 +3,12 @@ use std::collections::HashMap;
 
 use super::ContextQuery;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PageMetadata {
     pub add_context: HashMap<String, ContextQuery>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum StorageData {
     RecentPages(Vec<PageMetadata>),
     PageContent {
