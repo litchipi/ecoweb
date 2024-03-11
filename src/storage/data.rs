@@ -1,7 +1,13 @@
+use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
+
 use crate::errors::Errcode;
 use crate::page::PageMetadata;
 
-#[derive(Clone, Debug)]
+use super::StorageErrorType;
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum StorageData {
     Nothing,
     RecentPages(Vec<PageMetadata>),
@@ -14,14 +20,16 @@ pub enum StorageData {
     // - Series metadata
     // - Pages by tags
     // - Error code
-    Error(Errcode),
+    Template(String),
+    TemplateBase(HashMap<String, String>),
+    Error(StorageErrorType),
 }
 
 impl StorageData {
     pub fn page_content(self) -> Result<(PageMetadata, String), Errcode> {
         match self {
             StorageData::PageContent { metadata, body } => Ok((metadata, body)),
-            StorageData::Error(e) => Err(e),
+            StorageData::Error(e) => Err(Errcode::StorageError(e)),
             _ => Err(Errcode::WrongStorageData("PageContent")),
         }
     }
@@ -29,8 +37,16 @@ impl StorageData {
     pub fn recent_pages(self) -> Result<Vec<PageMetadata>, Errcode> {
         match self {
             StorageData::RecentPages(pages) => Ok(pages),
-            StorageData::Error(e) => Err(e),
+            StorageData::Error(e) => Err(Errcode::StorageError(e)),
             _ => Err(Errcode::WrongStorageData("RecentPages")),
+        }
+    }
+
+    pub fn template(self) -> Result<String, Errcode> {
+        match self {
+            StorageData::Template(template_str) => Ok(template_str),
+            StorageData::Error(e) => Err(Errcode::StorageError(e)),
+            _ => Err(Errcode::WrongStorageData("Template")),
         }
     }
 }

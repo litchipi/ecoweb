@@ -1,6 +1,6 @@
 use actix_web::body::BoxBody;
 use actix_web::web::Data;
-use actix_web::{Handler, HttpResponse};
+use actix_web::{Handler, HttpResponse, HttpResponseBuilder};
 use tera::Context;
 use std::pin::Pin;
 use std::future::Future;
@@ -38,7 +38,9 @@ impl Handler<RequestArgs> for PageHandler {
                 StorageQuery::content(&self.ptype.storage, None)
             }
         };
-        Box::pin(Self::respond(storage_query, self.ptype.add_context.clone(), args))
+        let default_template = self.ptype.default_template.clone();
+        let add_ctxt = self.ptype.add_context.clone();
+        Box::pin(Self::respond(storage_query, add_ctxt, default_template, args))
     }
 }
 
@@ -53,6 +55,7 @@ impl PageHandler {
     pub async fn respond(
         mut qry: StorageQuery, // Content query
         add_ctxt: HashMap<String, ContextQuery>,
+        default_template: String,
         args: RequestArgs,
     ) -> HttpResponse<BoxBody> {
         if !args.storage.has_changed(&qry).await {
@@ -74,18 +77,39 @@ impl PageHandler {
             qry.set_lang(lang);
         }
 
-        // TODO    Check if template is already loaded in engine or not
-        // TODO    Load template from storage if not loaded, and add to engine
-
         Self::build_response(args.render.clone(),
-            Self::handle_request(qry, &args.render, &args.storage, ctxt).await
+            Self::handle_request(
+                qry,
+                &args.render,
+                &args.storage,
+                default_template,
+                ctxt
+            ).await
         ).await
     }
 
-    pub async fn handle_request(qry: StorageQuery, render: &Render, storage: &Storage, mut ctxt: Context) -> Result<String, Errcode> {
+    pub async fn handle_request(
+        qry: StorageQuery, 
+        render: &Render,
+        storage: &Storage,
+        default_template: String,
+        mut ctxt: Context,
+    ) -> Result<String, Errcode> {
         let (metadata, body) = storage
             .query(qry.clone()).await
             .page_content()?;
+
+        // TODO    Check if template is already loaded in engine or not
+        let template = if let Some(ref template) = metadata.template {
+            template.clone()
+        } else {
+            default_template
+        };
+        if !render.has_template(&template) {
+            render.add_template(template).await?;
+        }
+        // TODO    Load template from storage if not loaded, and add to engine
+
 
         for (name, data) in metadata.add_context.iter() {
             data.insert_context(storage, name, &mut ctxt).await?;
@@ -98,13 +122,9 @@ impl PageHandler {
     }
 
     pub async fn error(render: Data<Render>, e: Errcode) -> HttpResponse<BoxBody> {
-        let mut builder = match e {
-            Errcode::ParameterNotInUrl => HttpResponse::NotFound(),
-            Errcode::DataNotFound(_) => HttpResponse::NotFound(),
-            Errcode::NoRecentPagesFound(_) => HttpResponse::NotFound(),
-            _ => HttpResponse::InternalServerError(),
-        };
-        builder.body(render.render_error(e).await)
+        let body = render.render_error(e.clone()).await;
+        let mut builder: HttpResponseBuilder = e.into();
+        builder.body(body)
     }
 
     pub async fn build_response(render: Data<Render>, body: Result<String, Errcode>) -> HttpResponse {

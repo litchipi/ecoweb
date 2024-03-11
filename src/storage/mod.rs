@@ -15,6 +15,8 @@ pub type StorageSlug = String;
 
 #[cfg(feature = "storage-local")]
 pub type Storage = StorageImpl<backend::local::LocalStorage>;
+#[cfg(feature = "storage-local")]
+pub type StorageErrorType = backend::local::LocalStorageError;
 
 pub struct StorageImpl<T: StorageBackend> {
     cache: Cache<StorageQuery, StorageData>,

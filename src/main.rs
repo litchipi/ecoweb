@@ -12,21 +12,13 @@ mod storage;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // let test = routes::ContentQueryMethod::FromSlug;
-    // let test2 = routes::ContentQueryMethod::ContentId("id".to_string());
-    // println!("{}", toml::to_string(&test).unwrap());
-    // println!("{}", toml::to_string(&test2).unwrap());
-    // let mut hmap = std::collections::HashMap::new();
-    // hmap.insert("test", test);
-    // hmap.insert("test2", test2);
-    // println!("{}", toml::to_string(&hmap).unwrap());
-    
     let config = config::Config::load().expect("Unable to load server configuration");
     config.setup_logging();
-    log::debug!("Configuration:\n{config:?}");
 
     let storage = Data::new(storage::Storage::init(&config));
-    let render = Data::new(render::Render::init(&config));
+    let render = Data::new(
+        render::Render::init(storage.clone().into_inner(), &config)
+    );
     let base_context = Data::new(config.base_templating_context());
 
     let port = config.server_port;
@@ -46,8 +38,6 @@ async fn main() -> std::io::Result<()> {
     });
 
     let srv = srv.bind(("0.0.0.0", port))?.run();
-
-    // log::info!("Serving content on http://0.0.0.0:{port}");
     log::info!("Serving content on http://0.0.0.0:{port}");
     srv.await
 }

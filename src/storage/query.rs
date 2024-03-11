@@ -10,13 +10,15 @@ pub enum StorageQueryMethod {
     NoOp = 0,
     ContentNoId,
     ContentNumId(u64),
-    GetRecentPages,
+    RecentPages,
+    PageTemplate(String),
+    BaseTemplates,
 }
 
 impl StorageQueryMethod {
-    pub fn build_query(self, slug: &String) -> StorageQuery {
+    pub fn build_query<T: ToString + ?Sized>(self, slug: &T) -> StorageQuery {
         let mut qry = StorageQuery {
-            storage_slug: slug.clone(),
+            storage_slug: slug.to_string(),
             method: self,
             ..Default::default()
         };
@@ -47,8 +49,16 @@ impl std::cmp::PartialEq for StorageQuery {
 }
 
 impl StorageQuery {
+    pub fn template_base() -> StorageQuery {
+        StorageQueryMethod::BaseTemplates.build_query("templates")
+    }
+
+    pub fn template(slug: String) -> StorageQuery {
+        StorageQueryMethod::PageTemplate(slug).build_query(&"templates".to_string())
+    }
+
     pub fn recent_pages(slug: &String, nb: usize) -> StorageQuery {
-        let mut qry = StorageQueryMethod::GetRecentPages.build_query(slug);
+        let mut qry = StorageQueryMethod::RecentPages.build_query(slug);
         qry.limit = nb;
         qry.update_key();
         qry
@@ -74,7 +84,12 @@ impl StorageQuery {
                 s.write_u8(2);
                 s.write_u64(id);
             }
-            StorageQueryMethod::GetRecentPages => s.write_u8(3),
+            StorageQueryMethod::RecentPages => s.write_u8(3),
+            StorageQueryMethod::PageTemplate(ref n) => {
+                s.write_u8(4);
+                s.write(n.as_bytes());
+            },
+            StorageQueryMethod::BaseTemplates => s.write_u8(5),
         }
         s.write_usize(self.limit);
         self.key = s.finish();

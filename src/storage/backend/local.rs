@@ -1,25 +1,44 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
 
+use actix_web::{HttpResponse, HttpResponseBuilder};
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
-use crate::errors::Errcode;
 use crate::page::PageMetadata;
 use crate::storage::query::StorageQueryMethod;
 use crate::storage::{StorageData, StorageQuery};
 
 use super::StorageBackend;
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum LocalStorageError {
+    LangNotSupported(Vec<String>),
+    DataNotFound(PathBuf),
+    LoadContent(String),
+    MetadataDecode(String),
+    NoMetadataSplit,
+}
+
+impl Into<HttpResponseBuilder> for LocalStorageError {
+    fn into(self) -> HttpResponseBuilder {
+        match self {
+            LocalStorageError::DataNotFound(_) => HttpResponse::NotFound(),
+            _ => HttpResponse::InternalServerError(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalStorage {
     data_root: PathBuf,
     supported_lang: Vec<String>,
     template_root: PathBuf,
+    base_templates: Vec<PathBuf>,
 }
 
 impl LocalStorage {
-    pub fn get_content_path(&self, qry: &StorageQuery, tail: Vec<String>) -> Result<PathBuf, Errcode> {
+    pub fn get_content_path(&self, qry: &StorageQuery, tail: Vec<String>) -> Result<PathBuf, LocalStorageError> {
         let mut path = self.data_root.join(qry.storage_slug.clone());
         if let Some(ref lang) = qry.lang_pref {
             for l in lang.iter() {
@@ -28,7 +47,7 @@ impl LocalStorage {
                     break;
                 }
             }
-            return Err(Errcode::LangNotSupported(lang.clone()));
+            return Err(LocalStorageError::LangNotSupported(lang.clone()));
         }
         for t in tail {
             path.push(t);
@@ -38,34 +57,35 @@ impl LocalStorage {
         Ok(path)
     }
 
-    pub fn load_content(&self, path: PathBuf) -> Result<StorageData, Errcode> {
+    pub fn load_content(&self, path: PathBuf) -> Result<StorageData, LocalStorageError> {
         if !path.exists() {
-            return Err(Errcode::DataNotFound(path.as_path().to_string_lossy().to_string()));
+            return Err(LocalStorageError::DataNotFound(path));
         }
 
         let content = std::fs::read_to_string(path)
             .map_err(|e|
-                Errcode::FilesystemError("storage-local::load_content", Arc::new(e))
+                LocalStorageError::LoadContent(format!("{e:?}"))
             )?;
 
         let mut split = content.split("---");
-        let metadata = split.next()
-            .ok_or(Errcode::ContentMalformed("storage-local::metadata::split"))?;
-        let metadata: PageMetadata = toml::from_str(metadata)
-            .map_err(|e| {
-                log::error!("Parse metadata from post: {e:?}");
-                Errcode::ContentMalformed("storage-local::metadata::toml-parse")
-            })?;
+        let metadata = split.next().unwrap();
         let body = split.next()
-            .ok_or(Errcode::ContentMalformed("storage-local::body::split"))?
+            .ok_or(LocalStorageError::NoMetadataSplit)?
             .to_string();
+        let metadata: PageMetadata = toml::from_str(metadata)
+            .map_err(|e| LocalStorageError::MetadataDecode(format!("{e:?}")))?;
         Ok(StorageData::PageContent {
             metadata,
             body,
         })
     }
 
-    pub fn dispatch(&self, qry: StorageQuery) -> Result<StorageData, Errcode> {
+    pub fn load_template(&self, path: PathBuf) -> Result<String, LocalStorageError> {
+        // TODO    Load a template from file
+        Ok(format!("<html><!-- Template {path:?} --></html>"))
+    }
+
+    pub fn dispatch(&self, qry: StorageQuery) -> Result<StorageData, LocalStorageError> {
         match qry.method {
             StorageQueryMethod::NoOp => {
                 log::debug!("Local storage No Op");
@@ -79,9 +99,24 @@ impl LocalStorage {
                 let path = self.get_content_path(&qry, vec![format!("{id}")])?;
                 self.load_content(path)
             },
-            StorageQueryMethod::GetRecentPages => {
+            StorageQueryMethod::RecentPages => {
                 // TODO    Get recent posts from local filesystem
                 Ok(StorageData::RecentPages(vec![]))
+            },
+            StorageQueryMethod::PageTemplate(name) => {
+                let path = self.template_root.join(name);
+                let data = self.load_template(path)?;
+                Ok(StorageData::Template(data))
+            },
+            StorageQueryMethod::BaseTemplates => {
+                let mut base_templates = HashMap::new();
+                for template in self.base_templates.iter() {
+                    let path = self.template_root.join(template);
+                    let name = path.file_name().unwrap().to_string_lossy().to_string();
+                    let data = self.load_template(path)?;
+                    base_templates.insert(name, data);
+                }
+                Ok(StorageData::TemplateBase(base_templates))
             },
         }
     }
