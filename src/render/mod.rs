@@ -2,7 +2,7 @@ use tera::Context;
 
 use crate::cache::Cache;
 use crate::config::Config;
-use crate::page::{PageMetadata, PageType};
+use crate::page::PageMetadata;
 use crate::errors::Errcode;
 use crate::storage::StorageQuery;
 
@@ -11,7 +11,7 @@ pub type TemplateSlug = String;
 mod markdown;
 
 pub struct Render {
-    cache: Cache<StorageQuery, String>,
+    pub cache: Cache<StorageQuery, String>,
 }
 
 impl Render {
@@ -21,21 +21,14 @@ impl Render {
         }
     }
 
-    pub fn get_cache(&self, qry: &StorageQuery) -> Option<String> {
-        // Get pre-rendered page from cache if any
-        // TODO    Cache pre-rendered pages
-        None
-    }
-
     pub async fn render_content(
         &self,
         body: String,
         md: &PageMetadata,
-        page: &PageType,
         ctxt: &Context,
-    ) -> String {
+    ) -> Result<String, Errcode> {
         // TODO    Render body from template using the engine
-        "<html>TODO</html>".to_string()
+        Ok(format!("<html><p>{body}</p><p>{md:?}</p><p>{ctxt:?}</p></html>"))
     }
 
     pub async fn render_error(&self, err: Errcode) -> String {

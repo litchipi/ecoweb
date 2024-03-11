@@ -56,7 +56,7 @@ impl PageHandler {
         args: RequestArgs,
     ) -> HttpResponse<BoxBody> {
         if !args.storage.has_changed(&qry).await {
-            if let Some(cached) = args.render.get_cache(&qry) {
+            if let Some(cached) = args.render.cache.get(&qry) {
                 return Self::build_response(args.render, Ok(cached)).await;
             }
         }
@@ -84,7 +84,7 @@ impl PageHandler {
 
     pub async fn handle_request(qry: StorageQuery, render: &Render, storage: &Storage, mut ctxt: Context) -> Result<String, Errcode> {
         let (metadata, body) = storage
-            .query(qry).await
+            .query(qry.clone()).await
             .page_content()?;
 
         for (name, data) in metadata.add_context.iter() {
@@ -92,8 +92,9 @@ impl PageHandler {
         }
         ctxt.insert("page-content", &body);
 
-        // TODO    Render post based on data
-        Ok(format!("{ctxt:?}"))
+        let res = render.render_content(body, &metadata, &ctxt).await?;
+        render.cache.add(qry, res.clone());
+        Ok(res)
     }
 
     pub async fn error(render: Data<Render>, e: Errcode) -> HttpResponse<BoxBody> {
