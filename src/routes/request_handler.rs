@@ -97,9 +97,13 @@ impl PageHandler {
     }
 
     pub async fn error(render: Data<Render>, e: Errcode) -> HttpResponse<BoxBody> {
-        // TODO    Error codes depending on error variants
-        let body = render.render_error(e).await;
-        HttpResponse::InternalServerError().body(body)
+        let mut builder = match e {
+            Errcode::ParameterNotInUrl => HttpResponse::NotFound(),
+            Errcode::DataNotFound(_) => HttpResponse::NotFound(),
+            Errcode::NoRecentPagesFound(_) => HttpResponse::NotFound(),
+            _ => HttpResponse::InternalServerError(),
+        };
+        builder.body(render.render_error(e).await)
     }
 
     pub async fn build_response(render: Data<Render>, body: Result<String, Errcode>) -> HttpResponse {
