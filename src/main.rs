@@ -9,6 +9,7 @@ mod page;
 mod render;
 mod routes;
 mod storage;
+mod scss;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

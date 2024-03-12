@@ -7,9 +7,11 @@ edition = "2021"
 actix-web = "4.5.1"
 clap = { version = "4.5.2", features = ["derive"] }
 env_logger = "0.11.3"
+grass = "0.13.2"
 log = "0.4.21"
 mdtrans = "0.1.4"
 mime_guess = "2.0.4"
+minifier = "0.3.0"
 parking_lot = "0.12.1"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
@@ -18,5 +20,9 @@ tera = "1.19.1"
 toml = "0.8.10"
 
 [features]
-default = [ "storage-local" ]
+default = [ "storage-local", "css_minify" ]
+minify = [ "css_minify" ]
+
+# Local storage
 storage-local = []
+css_minify = []

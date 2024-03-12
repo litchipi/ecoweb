@@ -6,10 +6,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
 use crate::page::PageMetadata;
+use crate::scss::{setup_css, ScssError};
 use crate::storage::query::StorageQueryMethod;
 use crate::storage::{StorageData, StorageQuery};
 
 use super::StorageBackend;
+
+fn canonicalize_to_root(path: &mut PathBuf, root: &PathBuf) -> Result<(), LocalStorageError> {
+    *path = root
+        .join(&path)
+        .canonicalize()
+        .map_err(|e| LocalStorageError::InitPaths(format!("{e:?}")))?;
+    Ok(())
+}
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum LocalStorageError {
@@ -22,6 +31,7 @@ pub enum LocalStorageError {
     NoMetadataSplit,
     BadRequest(String),
     InitPaths(String),
+    ScssProcess(ScssError),
 }
 
 impl Into<HttpResponseBuilder> for LocalStorageError {
@@ -35,14 +45,38 @@ impl Into<HttpResponseBuilder> for LocalStorageError {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalStorage {
+    // Data
     data_root: PathBuf,
     supported_lang: Vec<String>,
+
+    // Templates
     template_root: PathBuf,
     base_templates: Vec<String>,
+
+    // Assets
     include_assets: Vec<PathBuf>,
+
+    // CSS
+    css_output_dir: PathBuf,
+    scss: HashMap<String, Vec<PathBuf>>,
 }
 
 impl LocalStorage {
+    pub fn canonicalize_paths(&mut self, config: &Config) -> Result<(), LocalStorageError> {
+        canonicalize_to_root(&mut self.data_root, &config.root)?;
+        canonicalize_to_root(&mut self.template_root, &config.root)?;
+        canonicalize_to_root(&mut self.css_output_dir, &config.root)?;
+        self.include_assets.push(self.css_output_dir.clone());
+        for inc in self.include_assets.iter_mut() {
+            *inc = config
+                .root
+                .join(&inc)
+                .canonicalize()
+                .map_err(|e| LocalStorageError::InitPaths(format!("{e:?}")))?;
+        }
+        Ok(())
+    }
+
     pub fn get_content_path(
         &self,
         qry: &StorageQuery,
@@ -69,6 +103,7 @@ impl LocalStorage {
     pub fn load_static_file(&self, path: PathBuf) -> Result<StorageData, LocalStorageError> {
         let data =
             std::fs::read(path).map_err(|e| LocalStorageError::LoadStaticFile(e.to_string()))?;
+        // TODO    Catch javascript files here, pass through minification process
         Ok(StorageData::StaticFileData(data))
     }
 
@@ -165,26 +200,9 @@ impl StorageBackend for LocalStorage {
         Self: Sized,
     {
         let mut storage = config.local_storage.clone();
-        for inc in storage.include_assets.iter_mut() {
-            *inc = config
-                .root
-                .join(&inc)
-                .canonicalize()
-                .map_err(|e| LocalStorageError::InitPaths(format!("{e:?}")))?;
-        }
-
-        storage.data_root = config
-            .root
-            .join(&storage.data_root)
-            .canonicalize()
-            .map_err(|e| LocalStorageError::InitPaths(format!("{e:?}")))?;
-
-        storage.template_root = config
-            .root
-            .join(&storage.template_root)
-            .canonicalize()
-            .map_err(|e| LocalStorageError::InitPaths(format!("{e:?}")))?;
-
+        storage.canonicalize_paths(config)?;
+        setup_css(&config.root, &storage.scss, &storage.css_output_dir)
+            .map_err(|e| LocalStorageError::ScssProcess(e))?;
         Ok(storage)
     }
 
