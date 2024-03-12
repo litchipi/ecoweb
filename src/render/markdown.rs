@@ -4,7 +4,24 @@ use mdtrans::{transform_markdown_string, MarkdownTransformer};
 use syntect::html::{ClassStyle, ClassedHTMLGenerator};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
-use tera::Context;
+use tera::{try_get_value, Context};
+
+pub fn markdown_render(
+    val: &tera::Value,
+    _: &HashMap<String, tera::Value>
+) -> Result<tera::Value, tera::Error> {
+    let s = try_get_value!("markdown_render", "value", String, val)
+        .trim()
+        .to_string();
+    let md = MarkdownRenderer::init();
+    match md.render(s) {
+        Err(e) => {
+            log::error!("Error while rendering markdown in template:\n{e:?}");
+            Err(tera::Error::msg(format!("Markdown render error: {e:?}")))
+        }
+        Ok(s) => Ok(tera::to_value(s)?),
+    }
+}
 
 #[derive(Clone)]
 pub struct MarkdownRenderer {}
@@ -14,7 +31,16 @@ impl MarkdownRenderer {
         MarkdownRenderer {}
     }
 
-    pub fn render(&self, content: String, ctxt: &mut Context) -> Result<(), mdtrans::Errcode> {
+    pub fn render(&self, content: String) -> Result<String, mdtrans::Errcode> {
+        let mut transformer = MarkdownToHtml::init();
+        let mut body = transform_markdown_string(content, &mut transformer)?;
+        if transformer.current_section > 0 {
+            body += "</section>";
+        }
+        Ok(body)
+    }
+
+    pub fn render_to_ctxt(&self, content: String, ctxt: &mut Context) -> Result<(), mdtrans::Errcode> {
         let mut transformer = MarkdownToHtml::init();
         let mut body = transform_markdown_string(content, &mut transformer)?;
         if transformer.current_section > 0 {

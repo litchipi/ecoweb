@@ -84,7 +84,7 @@ impl LocalStorage {
     pub fn get_content_path(
         &self,
         qry: &StorageQuery,
-        tail: Vec<String>,
+        tail: Vec<&str>,
     ) -> Result<PathBuf, LocalStorageError> {
         let mut path = self.data_root.join(qry.storage_slug.clone());
         if let Some(ref lang) = qry.lang_pref {
@@ -97,7 +97,7 @@ impl LocalStorage {
             return Err(LocalStorageError::LangNotSupported(lang.clone()));
         }
         for t in tail {
-            path.push(t);
+            path.push(t.to_string());
         }
         path.set_extension("md");
         log::debug!("Path: {path:?}");
@@ -116,7 +116,7 @@ impl LocalStorage {
             return Err(LocalStorageError::DataNotFound(path));
         }
 
-        let content = std::fs::read_to_string(path)
+        let content = std::fs::read_to_string(path.clone())
             .map_err(|e| LocalStorageError::LoadContent(format!("{e:?}")))?;
 
         let mut split = content.split("---");
@@ -125,8 +125,13 @@ impl LocalStorage {
             .next()
             .ok_or(LocalStorageError::NoMetadataSplit)?
             .to_string();
-        let metadata: PageMetadata = toml::from_str(metadata)
+
+        let mut metadata: PageMetadata = toml::from_str(metadata)
             .map_err(|e| LocalStorageError::MetadataDecode(format!("{e:?}")))?;
+        if metadata.id == 0 {
+            metadata.update_id(path.into_os_string().to_string_lossy().to_string());
+        }
+
         Ok(StorageData::PageContent { metadata, body })
     }
 
@@ -152,7 +157,11 @@ impl LocalStorage {
             }
             StorageQueryMethod::ContentNumId(id) => {
                 // TODO    FIXME    Get post file path from ID
-                let path = self.get_content_path(&qry, vec![format!("{id}")])?;
+                let path = self.get_content_path(&qry, vec![format!("{id}").as_str()])?;
+                self.load_content(path)
+            }
+            StorageQueryMethod::ContentSlug(ref slug) => {
+                let path = self.get_content_path(&qry, vec![slug])?;
                 self.load_content(path)
             }
             StorageQueryMethod::RecentPages => {
@@ -193,6 +202,14 @@ impl LocalStorage {
                 }
                 Err(LocalStorageError::DataNotFound(fpath))
             }
+            StorageQueryMethod::GetSimilarPages(keys, val) => {
+                // TODO    Get similar pages based on metadata key and value
+                Ok(StorageData::SimilarPages(vec![]))
+            }
+            StorageQueryMethod::QueryMetadata(filter, query) => {
+                // TODO   IMPORTANT  Filter Metadata of all pages, returns the query
+                Ok(StorageData::Nothing)
+            }
         }
     }
 }
@@ -219,10 +236,7 @@ impl StorageBackend for LocalStorage {
 
     async fn query(&self, qry: StorageQuery) -> StorageData {
         match self.dispatch(qry) {
-            Ok(data) => {
-                log::debug!("Local storage data: {data:?}");
-                data
-            }
+            Ok(data) => data,
             Err(e) => StorageData::Error(e),
         }
     }

@@ -35,6 +35,14 @@ impl FromRequest for RequestArgs {
 }
 
 impl RequestArgs {
+    pub fn get_query_slug(&self, slug: &String) -> Result<String, Errcode> {
+        if let Some(slug) = self.match_infos.get(slug) {
+            Ok(slug.to_string())
+        } else {
+            Err(Errcode::ParameterNotInUrl)
+        }
+    }
+
     pub fn get_query_id(&self, slug: &String) -> Result<u64, Errcode> {
         if let Some(id) = self.match_infos.get(slug) {
             Ok(id

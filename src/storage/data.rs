@@ -11,6 +11,8 @@ use super::StorageErrorType;
 pub enum StorageData {
     Nothing,
     RecentPages(Vec<PageMetadata>),
+    SimilarPages(Vec<PageMetadata>),
+    QueryMetadata(serde_json::Value),
     PageContent {
         metadata: PageMetadata,
         body: String,
@@ -22,6 +24,22 @@ pub enum StorageData {
 }
 
 impl StorageData {
+    pub fn query_metadata(self) -> Result<serde_json::Value, Errcode> {
+        match self {
+            StorageData::QueryMetadata(val) => Ok(val),
+            StorageData::Error(e) => Err(Errcode::StorageError(e)),
+            _ => Err(Errcode::WrongStorageData("QueryMetadata")),
+        }
+    }
+
+    pub fn similar_pages(self) -> Result<Vec<PageMetadata>, Errcode> {
+        match self {
+            StorageData::SimilarPages(pages) => Ok(pages),
+            StorageData::Error(e) => Err(Errcode::StorageError(e)),
+            _ => Err(Errcode::WrongStorageData("SimilarPages")),
+        }
+    }
+
     pub fn page_content(self) -> Result<(PageMetadata, String), Errcode> {
         match self {
             StorageData::PageContent { metadata, body } => Ok((metadata, body)),

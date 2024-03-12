@@ -1,7 +1,8 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use parking_lot::RwLock;
-use tera::{Context, Tera};
+use tera::{try_get_value, Context, Tera};
 
 use crate::cache::Cache;
 use crate::config::Config;
@@ -33,6 +34,8 @@ impl Render {
         let loaded = base_templates.iter().map(|(n, _)| n.clone()).collect();
 
         let mut engine = Tera::default();
+        engine.register_filter("timestamp_convert", timestamp_to_date);
+        engine.register_filter("markdown_render", markdown::markdown_render);
         engine.add_raw_templates(base_templates)?;
         Ok(Render {
             storage,
@@ -65,7 +68,7 @@ impl Render {
         mut ctxt: Context,
     ) -> Result<String, Errcode> {
         self.add_template(template).await?;
-        self.markdown_render.render(body, &mut ctxt)?;
+        self.markdown_render.render_to_ctxt(body, &mut ctxt)?;
         let result = self.engine.read().render(template, &ctxt)?;
         Ok(result)
     }
@@ -75,4 +78,14 @@ impl Render {
         //    If template doesn't exist, or fails to render, display a pure HTML message
         format!("<html>Error: {err:?}</html>")
     }
+}
+
+pub fn timestamp_to_date(
+    val: &tera::Value,
+    _: &HashMap<String, tera::Value>
+) -> Result<tera::Value, tera::Error> {
+    let s = try_get_value!("timestamp_to_date", "value", i64, val);
+    let date = chrono::NaiveDateTime::from_timestamp_opt(s, 0).unwrap();
+    let val = tera::to_value(date.format("%d/%m/%Y").to_string())?;
+    Ok(val)
 }

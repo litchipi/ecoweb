@@ -9,7 +9,7 @@ mod query;
 use backend::StorageBackend;
 pub use context::ContextQuery;
 pub use data::StorageData;
-pub use query::StorageQuery;
+pub use query::{StorageQuery, StorageQueryMethod};
 
 pub type StorageSlug = String;
 

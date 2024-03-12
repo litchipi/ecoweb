@@ -19,6 +19,7 @@ pub enum Errcode {
     // Storage
     StorageError(StorageErrorType),
     WrongStorageData(&'static str),
+    ContextQueryBuild(&'static str, String),
 
     // Render
     RegisterTemplate(String),

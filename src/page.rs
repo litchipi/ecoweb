@@ -1,4 +1,6 @@
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::hash::Hasher;
 
 use serde::{Deserialize, Serialize};
 
@@ -8,12 +10,25 @@ use crate::storage::{ContextQuery, StorageSlug};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PageMetadata {
-    // TODO   IMPORTANT     Add some necessary metadata
+    #[serde(default)]
+    pub id: u64,
+
+    #[serde(default)]
+    pub metadata: HashMap<String, serde_json::Value>,
 
     #[serde(default)]
     pub add_context: HashMap<String, ContextQuery>,
+
     #[serde(default)]
     pub template: Option<String>,
+}
+
+impl PageMetadata {
+    pub fn update_id(&mut self, page_name: String) {
+        let mut s = DefaultHasher::new();
+        s.write(format!("{:?}", self.metadata).as_bytes());
+        self.id = s.finish();
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

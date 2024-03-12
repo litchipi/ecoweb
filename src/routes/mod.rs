@@ -9,17 +9,39 @@ use actix_web::web::{self, ServiceConfig};
 use request_handler::PageHandler;
 use serde::{Deserialize, Serialize};
 
-use crate::config::Config;
+use crate::{config::Config, errors::Errcode, storage::{StorageQuery, StorageQueryMethod}};
+
+use self::data_extract::RequestArgs;
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "method", content = "args")]
 #[serde(rename_all = "snake_case")]
 pub enum ContentQueryMethod {
-    // Get content ID from URL, with slug passed in parameter, has to be a number
+    // Get content slug from URL, with storage passed in parameter, has to be a str
+    ContentSlug(String),
+
+    // Get content ID from URL, with storage passed in parameter, has to be a number
     ContentId(String),
 
     #[default]
     FromSlug,
+}
+
+impl ContentQueryMethod {
+    pub fn build_query(&self, storage: &String, args: &RequestArgs) -> Result<StorageQuery, Errcode> {
+        let method = match self {
+            ContentQueryMethod::ContentSlug(ref slug) => {
+                let slug = args.get_query_slug(slug)?;
+                StorageQueryMethod::ContentSlug(slug)
+            },
+            ContentQueryMethod::ContentId(ref slug) => {
+                let id = args.get_query_id(slug)?;
+                StorageQueryMethod::ContentNumId(id)
+            },
+            ContentQueryMethod::FromSlug => StorageQueryMethod::ContentNoId,
+        };
+        Ok(method.build_query(storage))
+    }
 }
 
 pub fn configure(cfg: &Config, app: &mut ServiceConfig) {

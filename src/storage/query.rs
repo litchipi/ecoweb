@@ -3,6 +3,8 @@ use std::hash::Hasher;
 
 use serde::{Deserialize, Serialize};
 
+use super::context::{MetadataFilter, MetadataQuery};
+
 #[repr(u8)]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
 /// All the methods that a storage have to implement in order to work
@@ -11,10 +13,13 @@ pub enum StorageQueryMethod {
     NoOp = 0,
     ContentNoId,
     ContentNumId(u64),
+    ContentSlug(String),
     RecentPages,
+    GetSimilarPages(MetadataFilter, serde_json::Value),
     PageTemplate(String),
     BaseTemplates,
     StaticFile(String),
+    QueryMetadata(MetadataFilter, MetadataQuery),
 }
 
 impl StorageQueryMethod {
@@ -51,31 +56,38 @@ impl std::cmp::PartialEq for StorageQuery {
 }
 
 impl StorageQuery {
+    pub fn query_metadata(slug: &String, filter: MetadataFilter, qry: MetadataQuery) -> StorageQuery {
+        StorageQueryMethod::QueryMetadata(filter, qry).build_query(slug)
+    }
+    pub fn similar_pages(slug: &String, keys: MetadataFilter, val: serde_json::Value) -> StorageQuery {
+        StorageQueryMethod::GetSimilarPages(keys, val).build_query(slug)
+    }
     pub fn static_file(fname: String) -> StorageQuery {
         StorageQueryMethod::StaticFile(fname).build_query("static")
     }
     pub fn base_templates() -> StorageQuery {
         StorageQueryMethod::BaseTemplates.build_query("templates")
     }
-
     pub fn template(slug: String) -> StorageQuery {
         StorageQueryMethod::PageTemplate(slug).build_query("templates")
     }
-
     pub fn recent_pages(slug: &String, nb: usize) -> StorageQuery {
         let mut qry = StorageQueryMethod::RecentPages.build_query(slug);
         qry.limit = nb;
         qry.update_key();
         qry
     }
-
-    pub fn content(slug: &String, id: Option<u64>) -> StorageQuery {
+    pub fn content(storage: &String, id: Option<u64>, slug: Option<String>) -> StorageQuery {
         let method = if let Some(id) = id {
             StorageQueryMethod::ContentNumId(id)
         } else {
-            StorageQueryMethod::ContentNoId
+            if let Some(slug) = slug {
+                StorageQueryMethod::ContentSlug(slug)
+            } else {
+                StorageQueryMethod::ContentNoId
+            }
         };
-        method.build_query(slug)
+        method.build_query(storage)
     }
 
     pub fn update_key(&mut self) {
@@ -98,6 +110,26 @@ impl StorageQuery {
             StorageQueryMethod::StaticFile(ref n) => {
                 s.write_u8(6);
                 s.write(n.as_bytes());
+            }
+            StorageQueryMethod::GetSimilarPages(ref keys, ref v) => {
+                s.write_u8(7);
+                for k in keys {
+                    s.write(k.as_bytes());
+                }
+                s.write(format!("{v:?}").as_bytes());
+            }
+            StorageQueryMethod::ContentSlug(ref slug) => {
+                s.write_u8(8);
+                s.write(slug.as_bytes());
+            }
+            StorageQueryMethod::QueryMetadata(ref filter, ref qry) => {
+                s.write_u8(9);
+                for f in filter {
+                    s.write(f.as_bytes());
+                }
+                for q in qry {
+                    s.write(q.as_bytes());
+                }
             }
         }
         s.write_usize(self.limit);
