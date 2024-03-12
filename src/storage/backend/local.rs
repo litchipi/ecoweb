@@ -14,6 +14,7 @@ use super::StorageBackend;
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum LocalStorageError {
     LangNotSupported(Vec<String>),
+    TemplateNotFound(PathBuf),
     DataNotFound(PathBuf),
     LoadContent(String),
     MetadataDecode(String),
@@ -34,7 +35,7 @@ pub struct LocalStorage {
     data_root: PathBuf,
     supported_lang: Vec<String>,
     template_root: PathBuf,
-    base_templates: Vec<PathBuf>,
+    base_templates: Vec<String>,
 }
 
 impl LocalStorage {
@@ -80,9 +81,16 @@ impl LocalStorage {
         })
     }
 
-    pub fn load_template(&self, path: PathBuf) -> Result<String, LocalStorageError> {
-        // TODO    Load a template from file
-        Ok(format!("<html><!-- Template {path:?} --></html>"))
+    pub fn load_template(&self, name: &String) -> Result<String, LocalStorageError> {
+        let path = self.template_root.join(name);
+        if !path.exists() {
+            return Err(LocalStorageError::TemplateNotFound(path));
+        }
+        let content = std::fs::read_to_string(path)
+            .map_err(|e|
+                LocalStorageError::LoadContent(format!("{e:?}"))
+            )?;
+        Ok(content)
     }
 
     pub fn dispatch(&self, qry: StorageQuery) -> Result<StorageData, LocalStorageError> {
@@ -104,17 +112,14 @@ impl LocalStorage {
                 Ok(StorageData::RecentPages(vec![]))
             },
             StorageQueryMethod::PageTemplate(name) => {
-                let path = self.template_root.join(name);
-                let data = self.load_template(path)?;
+                let data = self.load_template(&name)?;
                 Ok(StorageData::Template(data))
             },
             StorageQueryMethod::BaseTemplates => {
                 let mut base_templates = HashMap::new();
                 for template in self.base_templates.iter() {
-                    let path = self.template_root.join(template);
-                    let name = path.file_name().unwrap().to_string_lossy().to_string();
-                    let data = self.load_template(path)?;
-                    base_templates.insert(name, data);
+                    let data = self.load_template(template)?;
+                    base_templates.insert(template.clone(), data);
                 }
                 Ok(StorageData::BaseTemplate(base_templates))
             },
