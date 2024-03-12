@@ -17,12 +17,13 @@ impl From<Box<grass::Error>> for ScssError {
 }
 
 pub fn setup_css(
-    root: &PathBuf,
+    root: PathBuf,
     scss: &HashMap<String, Vec<PathBuf>>,
     outdir: &PathBuf,
 ) -> Result<(), ScssError> {
     let grass_opts = grass::Options::default(); // TODO Get from options
 
+    log::debug!("SCSS root: {root:?}");
     for (outname, scss_list) in scss.iter() {
         let mut out_css = String::new();
         for scss_path in scss_list.iter() {

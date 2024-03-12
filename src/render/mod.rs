@@ -25,6 +25,8 @@ pub struct Render {
 
 impl Render {
     pub async fn init(storage: Arc<Storage>, cfg: &Config) -> Result<Render, Errcode> {
+        // TODO    Register ALL templates from database directly here
+        //     Remove the per-request template registering
         let qry = StorageQuery::base_templates();
 
         let base_templates = storage.query(qry).await.base_templates()?;

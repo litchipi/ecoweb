@@ -16,7 +16,7 @@ fn canonicalize_to_root(path: &mut PathBuf, root: &PathBuf) -> Result<(), LocalS
     *path = root
         .join(&path)
         .canonicalize()
-        .map_err(|e| LocalStorageError::InitPaths(format!("{e:?}")))?;
+        .map_err(|e| LocalStorageError::InitPaths(format!("{path:?}: {e:?}")))?;
     Ok(())
 }
 
@@ -30,6 +30,7 @@ pub enum LocalStorageError {
     MetadataDecode(String),
     NoMetadataSplit,
     BadRequest(String),
+    CreateDir(String),
     InitPaths(String),
     ScssProcess(ScssError),
 }
@@ -59,12 +60,15 @@ pub struct LocalStorage {
     // CSS
     css_output_dir: PathBuf,
     scss: HashMap<String, Vec<PathBuf>>,
+    scss_root: PathBuf,
 }
 
 impl LocalStorage {
     pub fn canonicalize_paths(&mut self, config: &Config) -> Result<(), LocalStorageError> {
         canonicalize_to_root(&mut self.data_root, &config.root)?;
         canonicalize_to_root(&mut self.template_root, &config.root)?;
+        std::fs::create_dir_all(config.root.join(&self.css_output_dir))
+            .map_err(|e| LocalStorageError::CreateDir(format!("css: {e:?}")))?;
         canonicalize_to_root(&mut self.css_output_dir, &config.root)?;
         self.include_assets.push(self.css_output_dir.clone());
         for inc in self.include_assets.iter_mut() {
@@ -72,7 +76,7 @@ impl LocalStorage {
                 .root
                 .join(&inc)
                 .canonicalize()
-                .map_err(|e| LocalStorageError::InitPaths(format!("{e:?}")))?;
+                .map_err(|e| LocalStorageError::InitPaths(format!("{inc:?}: {e:?}")))?;
         }
         Ok(())
     }
@@ -147,6 +151,7 @@ impl LocalStorage {
                 self.load_content(path)
             }
             StorageQueryMethod::ContentNumId(id) => {
+                // TODO    FIXME    Get post file path from ID
                 let path = self.get_content_path(&qry, vec![format!("{id}")])?;
                 self.load_content(path)
             }
@@ -201,7 +206,8 @@ impl StorageBackend for LocalStorage {
     {
         let mut storage = config.local_storage.clone();
         storage.canonicalize_paths(config)?;
-        setup_css(&config.root, &storage.scss, &storage.css_output_dir)
+        setup_css(
+            config.root.join(&storage.scss_root), &storage.scss, &storage.css_output_dir)
             .map_err(|e| LocalStorageError::ScssProcess(e))?;
         Ok(storage)
     }

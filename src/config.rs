@@ -46,7 +46,10 @@ impl Config {
         let config_str = std::fs::read_to_string(&args.config_file)
             .map_err(|e| Errcode::ConfigFileRead(Arc::new(e)))?;
         let mut config: Config =
-            toml::from_str(&config_str).map_err(|e| Errcode::TomlDecode("config file", e))?;
+            toml::from_str(&config_str).map_err(|e| {
+                println!("{}", e.to_string());
+                Errcode::TomlDecode("config file", e)
+            })?;
         config.root = args.config_file.parent().unwrap().to_path_buf();
 
         for (slug, ptype) in config.page_type.iter_mut() {

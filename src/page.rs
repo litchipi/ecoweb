@@ -8,6 +8,8 @@ use crate::storage::{ContextQuery, StorageSlug};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PageMetadata {
+    // TODO   IMPORTANT     Add some necessary metadata
+
     #[serde(default)]
     pub add_context: HashMap<String, ContextQuery>,
     #[serde(default)]
