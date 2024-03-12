@@ -22,6 +22,8 @@ struct Arguments {
 pub struct Config {
     pub server_port: u16,
     pub default_lang: String,
+    pub assets_dir: PathBuf,
+    pub static_files_route: String,
 
     #[serde(default)]
     pub add_context: HashMap<String, serde_json::Value>,

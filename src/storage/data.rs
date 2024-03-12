@@ -21,6 +21,7 @@ pub enum StorageData {
     // - Pages by tags
     Template(String),
     BaseTemplate(HashMap<String, String>),
+    StaticFileData(Vec<u8>),
     Error(StorageErrorType),
 }
 
@@ -54,6 +55,14 @@ impl StorageData {
             StorageData::BaseTemplate(tmap) => Ok(tmap),
             StorageData::Error(e) => Err(Errcode::StorageError(e)),
             _ => Err(Errcode::WrongStorageData("BaseTemplate")),
+        }
+    }
+
+    pub fn static_file(self) -> Result<Vec<u8>, Errcode> {
+        match self {
+            StorageData::StaticFileData(data) => Ok(data),
+            StorageData::Error(e) => Err(Errcode::StorageError(e)),
+            _ => Err(Errcode::WrongStorageData("StaticFileData")),
         }
     }
 }

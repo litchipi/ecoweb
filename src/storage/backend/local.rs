@@ -17,8 +17,11 @@ pub enum LocalStorageError {
     TemplateNotFound(PathBuf),
     DataNotFound(PathBuf),
     LoadContent(String),
+    LoadStaticFile(String),
     MetadataDecode(String),
     NoMetadataSplit,
+    BadRequest(String),
+    IncludeCanonicalize(String),
 }
 
 impl Into<HttpResponseBuilder> for LocalStorageError {
@@ -36,6 +39,7 @@ pub struct LocalStorage {
     supported_lang: Vec<String>,
     template_root: PathBuf,
     base_templates: Vec<String>,
+    include_assets: Vec<PathBuf>,
 }
 
 impl LocalStorage {
@@ -60,6 +64,12 @@ impl LocalStorage {
         path.set_extension("md");
         log::debug!("Path: {path:?}");
         Ok(path)
+    }
+
+    pub fn load_static_file(&self, path: PathBuf) -> Result<StorageData, LocalStorageError> {
+        let data = std::fs::read(path)
+            .map_err(|e| LocalStorageError::LoadStaticFile(e.to_string()))?;
+        Ok(StorageData::StaticFileData(data))
     }
 
     pub fn load_content(&self, path: PathBuf) -> Result<StorageData, LocalStorageError> {
@@ -121,16 +131,43 @@ impl LocalStorage {
                 }
                 Ok(StorageData::BaseTemplate(base_templates))
             }
+            StorageQueryMethod::StaticFile(f) => {
+                let fpath = PathBuf::from(&f);
+                let parent = fpath
+                    .components().nth(0)
+                    .ok_or(
+                        LocalStorageError::BadRequest("static file no /".to_string())
+                    )?;
+                for inc in self.include_assets.iter() {
+                    let last = inc.components().last().unwrap();
+                    if last == parent {
+                        let path = inc.join(fpath.strip_prefix(parent).unwrap());
+                        let path = path.canonicalize()
+                            .map_err(|e| LocalStorageError::DataNotFound(path))?;
+                        if path.starts_with(inc) {
+                            return self.load_static_file(path);
+                        }
+                    }
+                }
+                Err(LocalStorageError::DataNotFound(fpath))
+            },
         }
     }
 }
 
 impl StorageBackend for LocalStorage {
-    fn init(config: &Config) -> Self
+    type Error = LocalStorageError;
+    
+    fn init(config: &Config) -> Result<Self, Self::Error>
     where
         Self: Sized,
     {
-        config.local_storage.clone()
+        let mut storage = config.local_storage.clone();
+        for inc in storage.include_assets.iter_mut() {
+            *inc = inc.canonicalize()
+                .map_err(|e| LocalStorageError::IncludeCanonicalize(e.to_string()))?;
+        }
+        Ok(storage)
     }
 
     async fn has_changed(&self, qry: &StorageQuery) -> bool {

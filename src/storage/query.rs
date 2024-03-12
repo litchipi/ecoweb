@@ -1,4 +1,5 @@
-use std::{collections::hash_map::DefaultHasher, hash::Hasher};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::Hasher;
 
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +14,7 @@ pub enum StorageQueryMethod {
     RecentPages,
     PageTemplate(String),
     BaseTemplates,
+    StaticFile(String),
 }
 
 impl StorageQueryMethod {
@@ -49,12 +51,15 @@ impl std::cmp::PartialEq for StorageQuery {
 }
 
 impl StorageQuery {
+    pub fn static_file(fname: String) -> StorageQuery {
+        StorageQueryMethod::StaticFile(fname).build_query("static")
+    }
     pub fn base_templates() -> StorageQuery {
         StorageQueryMethod::BaseTemplates.build_query("templates")
     }
 
     pub fn template(slug: String) -> StorageQuery {
-        StorageQueryMethod::PageTemplate(slug).build_query(&"templates".to_string())
+        StorageQueryMethod::PageTemplate(slug).build_query("templates")
     }
 
     pub fn recent_pages(slug: &String, nb: usize) -> StorageQuery {
@@ -90,6 +95,10 @@ impl StorageQuery {
                 s.write(n.as_bytes());
             }
             StorageQueryMethod::BaseTemplates => s.write_u8(5),
+            StorageQueryMethod::StaticFile(ref n) => {
+                s.write_u8(6);
+                s.write(n.as_bytes());
+            },
         }
         s.write_usize(self.limit);
         self.key = s.finish();

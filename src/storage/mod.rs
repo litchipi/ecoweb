@@ -24,11 +24,11 @@ pub struct StorageImpl<T: StorageBackend> {
 }
 
 impl<T: StorageBackend> StorageImpl<T> {
-    pub fn init(config: &Config) -> StorageImpl<T> {
-        StorageImpl {
+    pub fn init(config: &Config) -> Result<StorageImpl<T>, T::Error> {
+        Ok(StorageImpl {
             cache: Cache::empty(1024), // TODO Get from config
-            backend: T::init(config),
-        }
+            backend: T::init(config)?,
+        })
     }
 
     pub async fn query(&self, qry: StorageQuery) -> StorageData {

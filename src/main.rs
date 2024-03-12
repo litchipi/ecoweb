@@ -15,7 +15,10 @@ async fn main() -> std::io::Result<()> {
     let config = config::Config::load().expect("Unable to load server configuration");
     config.setup_logging();
 
-    let storage = Data::new(storage::Storage::init(&config));
+    let storage = Data::new(
+        storage::Storage::init(&config)
+            .expect("Unable to initialize storage")
+    );
     let render = Data::new(
         render::Render::init(storage.clone().into_inner(), &config)
             .await

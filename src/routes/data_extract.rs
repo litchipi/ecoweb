@@ -9,6 +9,7 @@ use crate::storage::Storage;
 
 #[derive(Clone)]
 pub struct RequestArgs {
+    pub uri: String,
     pub lang: Option<Vec<String>>,
     pub storage: Data<Storage>,
     pub render: Data<Render>,
@@ -23,6 +24,7 @@ impl FromRequest for RequestArgs {
     // Function called everytime we have a request to handle
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
         std::future::ready(Ok(RequestArgs {
+            uri: req.uri().to_string(),
             lang: get_lang(req),
             storage: get_from_req(req),
             render: get_from_req(req),
