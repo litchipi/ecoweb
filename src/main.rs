@@ -18,6 +18,7 @@ async fn main() -> std::io::Result<()> {
     let storage = Data::new(storage::Storage::init(&config));
     let render = Data::new(
         render::Render::init(storage.clone().into_inner(), &config)
+            .await.expect("Error while initializing render engine")
     );
     let base_context = Data::new(config.base_templating_context());
 
