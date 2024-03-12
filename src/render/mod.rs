@@ -37,16 +37,16 @@ impl Render {
         })
     }
 
-    pub fn has_template(&self, template: &String) -> bool {
-        self.templates_loaded.read().contains(template)
-    }
+    pub async fn add_template(&self, slug: &String) -> Result<(), Errcode> {
+        if self.templates_loaded.read().contains(slug) {
+            return Ok(());
+        }
 
-    pub async fn add_template(&self, slug: String) -> Result<(), Errcode> {
         let qry = StorageQuery::template(slug.clone());
         let template = self.storage.query(qry).await.template()?;
         self.engine
             .write()
-            .add_raw_template(slug.as_str(), template.as_str())?;
+            .add_raw_template(slug, template.as_str())?;
         self.templates_loaded.write().push(template);
         Ok(())
     }

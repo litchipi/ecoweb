@@ -59,6 +59,7 @@ impl PageHandler {
         default_template: String,
         args: RequestArgs,
     ) -> HttpResponse<BoxBody> {
+        // TODO    This function has to be only when nothing changed, including context
         if !args.storage.has_changed(&qry).await {
             if let Some(cached) = args.render.cache.get(&qry) {
                 return Self::build_response(args.render, Ok(cached)).await;
@@ -94,16 +95,12 @@ impl PageHandler {
     ) -> Result<String, Errcode> {
         let (metadata, body) = storage.query(qry.clone()).await.page_content()?;
 
-        // TODO    Check if template is already loaded in engine or not
         let template = if let Some(ref template) = metadata.template {
-            template.clone()
+            template
         } else {
-            default_template
+            &default_template
         };
-        if !render.has_template(&template) {
-            render.add_template(template).await?;
-        }
-        // TODO    Load template from storage if not loaded, and add to engine
+        render.add_template(template).await?;
 
         for (name, data) in metadata.add_context.iter() {
             data.insert_context(storage, name, &mut ctxt).await?;
