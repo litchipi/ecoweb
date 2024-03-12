@@ -95,25 +95,23 @@ impl PageHandler {
     ) -> Result<String, Errcode> {
         let (metadata, body) = storage.query(qry.clone()).await.page_content()?;
 
+        for (name, data) in metadata.add_context.iter() {
+            data.insert_context(storage, name, &mut ctxt).await?;
+        }
+
         let template = if let Some(ref template) = metadata.template {
             template
         } else {
             &default_template
         };
-        render.add_template(template).await?;
 
-        for (name, data) in metadata.add_context.iter() {
-            data.insert_context(storage, name, &mut ctxt).await?;
-        }
-        ctxt.insert("page-content", &body);
-
-        let res = render.render_content(body, &metadata, &ctxt).await?;
+        let res = render.render_content(template, body, &metadata, ctxt).await?;
         render.cache.add(qry, res.clone());
         Ok(res)
     }
 
     pub async fn error(render: Data<Render>, e: Errcode) -> HttpResponse<BoxBody> {
-        let body = render.render_error(e.clone()).await;
+        let body = render.render_error(&e).await;
         let mut builder: HttpResponseBuilder = e.into();
         builder.body(body)
     }

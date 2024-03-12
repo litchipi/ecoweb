@@ -9,6 +9,8 @@ use crate::errors::Errcode;
 use crate::page::PageMetadata;
 use crate::storage::{Storage, StorageQuery};
 
+use self::markdown::MarkdownRenderer;
+
 pub type TemplateSlug = String;
 
 mod markdown;
@@ -18,6 +20,7 @@ pub struct Render {
     templates_loaded: RwLock<Vec<String>>,
     storage: Arc<Storage>,
     engine: Arc<RwLock<Tera>>,
+    markdown_render: MarkdownRenderer,
 }
 
 impl Render {
@@ -34,6 +37,7 @@ impl Render {
             cache: Cache::empty(1024), // TODO Get from config
             templates_loaded: RwLock::new(loaded),
             engine: Arc::new(RwLock::new(engine)),
+            markdown_render: MarkdownRenderer::init(),
         })
     }
 
@@ -53,19 +57,20 @@ impl Render {
 
     pub async fn render_content(
         &self,
+        template: &String,
         body: String,
         md: &PageMetadata,
-        ctxt: &Context,
+        mut ctxt: Context,
     ) -> Result<String, Errcode> {
-        // TODO    Render body from template using the engine
-        Ok(format!(
-            "<html><p>{body}</p><p>{md:?}</p><p>{ctxt:?}</p></html>"
-        ))
+        self.add_template(template).await?;
+        self.markdown_render.render(body, &mut ctxt)?;
+        let result = self.engine.read().render(template, &ctxt)?;
+        Ok(result)
     }
 
-    pub async fn render_error(&self, err: Errcode) -> String {
+    pub async fn render_error(&self, err: &Errcode) -> String {
         // TODO    Try to render error page
         //    If template doesn't exist, or fails to render, display a pure HTML message
-        format!("{err:?}")
+        format!("<html>Error: {err:?}</html>")
     }
 }

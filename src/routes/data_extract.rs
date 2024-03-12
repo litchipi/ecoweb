@@ -42,10 +42,6 @@ impl RequestArgs {
             Err(Errcode::ParameterNotInUrl)
         }
     }
-
-    pub async fn render_error(&self, err: Errcode) -> String {
-        self.render.render_error(err).await
-    }
 }
 
 // TODO    Get lang from request
