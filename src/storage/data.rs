@@ -19,7 +19,6 @@ pub enum StorageData {
     // - Page metadata
     // - Series metadata
     // - Pages by tags
-    // - Error code
     Template(String),
     BaseTemplate(HashMap<String, String>),
     Error(StorageErrorType),
