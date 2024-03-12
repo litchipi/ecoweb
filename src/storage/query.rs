@@ -98,7 +98,7 @@ impl StorageQuery {
             StorageQueryMethod::StaticFile(ref n) => {
                 s.write_u8(6);
                 s.write(n.as_bytes());
-            },
+            }
         }
         s.write_usize(self.limit);
         self.key = s.finish();

@@ -105,7 +105,9 @@ impl PageHandler {
             &default_template
         };
 
-        let res = render.render_content(template, body, &metadata, ctxt).await?;
+        let res = render
+            .render_content(template, body, &metadata, ctxt)
+            .await?;
         render.cache.add(qry, res.clone());
         Ok(res)
     }

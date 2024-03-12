@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use tera::Context;
+use mdtrans::{transform_markdown_string, MarkdownTransformer};
 use syntect::html::{ClassStyle, ClassedHTMLGenerator};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
-use mdtrans::{MarkdownTransformer, transform_markdown_string};
+use tera::Context;
 
 #[derive(Clone)]
 pub struct MarkdownRenderer {}
@@ -22,8 +22,8 @@ impl MarkdownRenderer {
         }
 
         let nav = self.render_nav(transformer.sections);
-        ctxt.insert("page-content", &body);
-        ctxt.insert("page-nav", &nav);
+        ctxt.insert("page_content", &body);
+        ctxt.insert("page_nav", &nav);
         Ok(())
     }
 

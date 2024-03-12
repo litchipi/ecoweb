@@ -20,9 +20,11 @@ struct Arguments {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    #[serde(skip)]
+    pub root: PathBuf, // Derived from the config file path
+
     pub server_port: u16,
     pub default_lang: String,
-    pub assets_dir: PathBuf,
     pub static_files_route: String,
 
     #[serde(default)]
@@ -41,10 +43,11 @@ pub struct Config {
 impl Config {
     pub fn load() -> Result<Config, Errcode> {
         let args = Arguments::parse();
-        let config_str = std::fs::read_to_string(args.config_file)
+        let config_str = std::fs::read_to_string(&args.config_file)
             .map_err(|e| Errcode::ConfigFileRead(Arc::new(e)))?;
         let mut config: Config =
             toml::from_str(&config_str).map_err(|e| Errcode::TomlDecode("config file", e))?;
+        config.root = args.config_file.parent().unwrap().to_path_buf();
 
         for (slug, ptype) in config.page_type.iter_mut() {
             if ptype.storage.is_empty() {

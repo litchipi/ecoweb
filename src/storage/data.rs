@@ -15,10 +15,6 @@ pub enum StorageData {
         metadata: PageMetadata,
         body: String,
     },
-    // TODO    Add all cases of query
-    // - Page metadata
-    // - Series metadata
-    // - Pages by tags
     Template(String),
     BaseTemplate(HashMap<String, String>),
     StaticFileData(Vec<u8>),

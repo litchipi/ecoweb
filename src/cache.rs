@@ -75,6 +75,7 @@ impl<K: CacheKey, V: CacheVal> Cache<K, V> {
         }
         self.tot_size.fetch_add(1, Ordering::Relaxed);
         log::debug!("Added data to cache in {:?}", tstart.elapsed());
+        log::debug!("{:?}", self);
     }
 
     pub fn make_space(&self, size: usize) {

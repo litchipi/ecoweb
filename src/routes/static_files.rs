@@ -1,29 +1,27 @@
 use std::{future::Future, pin::Pin};
 
-use actix_web::{body::BoxBody, http::header, web::Data, Handler, HttpResponse, HttpResponseBuilder};
+use actix_web::{
+    body::BoxBody, http::header, web::Data, Handler, HttpResponse, HttpResponseBuilder,
+};
 
-use crate::{config::Config, storage::{Storage, StorageQuery}};
+use crate::{
+    config::Config,
+    storage::{Storage, StorageQuery},
+};
 
 use super::data_extract::RequestArgs;
 
 #[derive(Clone)]
-pub struct StaticFilesRoute {
-    prefix: String,
-}
-
+pub struct StaticFilesRoute;
 impl StaticFilesRoute {
-    pub fn init(cfg: &Config) -> StaticFilesRoute {
-        StaticFilesRoute {
-            prefix: cfg.static_files_route.clone(),
-        }
-    }
+    pub fn init(cfg: &Config) -> StaticFilesRoute { StaticFilesRoute }
 
-    pub async fn serve_file(fname: Option<String>, storage: Data<Storage>) -> HttpResponse<BoxBody> {
-        let Some(fname) = fname else {
-            return HttpResponse::InternalServerError().body("URI doesn't have prefix");
-        };
-
+    pub async fn serve_file(
+        fname: String,
+        storage: Data<Storage>,
+    ) -> HttpResponse<BoxBody> {
         let mime = mime_guess::from_path(&fname).first_or_octet_stream();
+        log::debug!("Static file mime: {fname:?} = {mime:?}");
 
         let qry = StorageQuery::static_file(fname);
         match storage.query(qry).await.static_file() {
@@ -31,10 +29,11 @@ impl StaticFilesRoute {
                 .insert_header(header::ContentType(mime))
                 .body(data),
             Err(e) => {
+                log::warn!("Unable to get file: {e:?}");
                 let msg = format!("{e:?}");
-                let mut err : HttpResponseBuilder = e.into();
+                let mut err: HttpResponseBuilder = e.into();
                 err.body(msg)
-            },
+            }
         }
     }
 }
@@ -45,7 +44,8 @@ impl Handler<RequestArgs> for StaticFilesRoute {
     type Future = Pin<Box<dyn Future<Output = Self::Output>>>;
 
     fn call(&self, args: RequestArgs) -> Self::Future {
-        let fname = args.uri.strip_prefix(&self.prefix).map(|s| s.to_string());
-        Box::pin(Self::serve_file(fname, args.storage))
+        // TODO    Add caching headers to request
+        let fname = args.match_infos.get("filename").unwrap();
+        Box::pin(Self::serve_file(fname.to_string(), args.storage))
     }
 }

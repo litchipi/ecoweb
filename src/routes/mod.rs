@@ -1,7 +1,7 @@
 mod data_extract;
 mod request_handler;
-mod upload;
 mod static_files;
+mod upload;
 
 pub use upload::UploadEndpoint;
 
@@ -31,8 +31,11 @@ pub fn configure(cfg: &Config, app: &mut ServiceConfig) {
     }
     upload::setup_routes(cfg, app);
 
+    let static_endpoint = cfg.static_files_route
+        .trim_end_matches("/")
+        .to_string() + "{filename:.*}";
     app.route(
-        cfg.static_files_route.as_str(),
-        web::get().to(static_files::StaticFilesRoute::init(&cfg))
+        &static_endpoint,
+        web::get().to(static_files::StaticFilesRoute::init(&cfg)),
     );
 }
