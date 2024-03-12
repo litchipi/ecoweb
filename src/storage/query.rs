@@ -49,7 +49,7 @@ impl std::cmp::PartialEq for StorageQuery {
 }
 
 impl StorageQuery {
-    pub fn template_base() -> StorageQuery {
+    pub fn base_templates() -> StorageQuery {
         StorageQueryMethod::BaseTemplates.build_query("templates")
     }
 

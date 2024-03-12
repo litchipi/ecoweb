@@ -20,6 +20,9 @@ pub enum Errcode {
     StorageError(StorageErrorType),
     WrongStorageData(&'static str),
 
+    // Render
+    RegisterTemplate(String),
+
     // Serialization
     TomlDecode(&'static str, toml::de::Error),
 }
@@ -31,5 +34,11 @@ impl Into<HttpResponseBuilder> for Errcode {
             Errcode::StorageError(e) => e.into(),
             _ => HttpResponse::InternalServerError(),
         }
+    }
+}
+
+impl From<tera::Error> for Errcode {
+    fn from(value: tera::Error) -> Self {
+        Errcode::RegisterTemplate(format!("{value:?}"))
     }
 }

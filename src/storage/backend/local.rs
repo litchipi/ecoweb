@@ -116,7 +116,7 @@ impl LocalStorage {
                     let data = self.load_template(path)?;
                     base_templates.insert(name, data);
                 }
-                Ok(StorageData::TemplateBase(base_templates))
+                Ok(StorageData::BaseTemplate(base_templates))
             },
         }
     }

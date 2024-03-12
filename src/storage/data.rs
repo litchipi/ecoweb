@@ -21,7 +21,7 @@ pub enum StorageData {
     // - Pages by tags
     // - Error code
     Template(String),
-    TemplateBase(HashMap<String, String>),
+    BaseTemplate(HashMap<String, String>),
     Error(StorageErrorType),
 }
 
@@ -47,6 +47,14 @@ impl StorageData {
             StorageData::Template(template_str) => Ok(template_str),
             StorageData::Error(e) => Err(Errcode::StorageError(e)),
             _ => Err(Errcode::WrongStorageData("Template")),
+        }
+    }
+
+    pub fn base_templates(self) -> Result<HashMap<String, String>, Errcode> {
+        match self {
+            StorageData::BaseTemplate(tmap) => Ok(tmap),
+            StorageData::Error(e) => Err(Errcode::StorageError(e)),
+            _ => Err(Errcode::WrongStorageData("BaseTemplate")),
         }
     }
 }
