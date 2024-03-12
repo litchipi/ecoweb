@@ -12,7 +12,7 @@ use crate::config::Config;
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "method", content = "args")]
-#[serde(rename_all = "snake_case")] 
+#[serde(rename_all = "snake_case")]
 pub enum ContentQueryMethod {
     // Get content ID from URL, with slug passed in parameter, has to be a number
     ContentId(String),

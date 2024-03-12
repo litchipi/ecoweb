@@ -27,7 +27,8 @@ impl ContextQuery {
             ContextQuery::Plain(d) => ctxt.insert(name, d),
             ContextQuery::RecentPages(ptype, nb) => {
                 let val = storage
-                    .query(StorageQuery::recent_pages(&ptype, *nb)).await
+                    .query(StorageQuery::recent_pages(&ptype, *nb))
+                    .await
                     .recent_pages()?;
                 ctxt.insert(name, &val);
             }

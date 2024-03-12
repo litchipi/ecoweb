@@ -39,7 +39,11 @@ pub struct LocalStorage {
 }
 
 impl LocalStorage {
-    pub fn get_content_path(&self, qry: &StorageQuery, tail: Vec<String>) -> Result<PathBuf, LocalStorageError> {
+    pub fn get_content_path(
+        &self,
+        qry: &StorageQuery,
+        tail: Vec<String>,
+    ) -> Result<PathBuf, LocalStorageError> {
         let mut path = self.data_root.join(qry.storage_slug.clone());
         if let Some(ref lang) = qry.lang_pref {
             for l in lang.iter() {
@@ -64,21 +68,17 @@ impl LocalStorage {
         }
 
         let content = std::fs::read_to_string(path)
-            .map_err(|e|
-                LocalStorageError::LoadContent(format!("{e:?}"))
-            )?;
+            .map_err(|e| LocalStorageError::LoadContent(format!("{e:?}")))?;
 
         let mut split = content.split("---");
         let metadata = split.next().unwrap();
-        let body = split.next()
+        let body = split
+            .next()
             .ok_or(LocalStorageError::NoMetadataSplit)?
             .to_string();
         let metadata: PageMetadata = toml::from_str(metadata)
             .map_err(|e| LocalStorageError::MetadataDecode(format!("{e:?}")))?;
-        Ok(StorageData::PageContent {
-            metadata,
-            body,
-        })
+        Ok(StorageData::PageContent { metadata, body })
     }
 
     pub fn load_template(&self, name: &String) -> Result<String, LocalStorageError> {
@@ -87,9 +87,7 @@ impl LocalStorage {
             return Err(LocalStorageError::TemplateNotFound(path));
         }
         let content = std::fs::read_to_string(path)
-            .map_err(|e|
-                LocalStorageError::LoadContent(format!("{e:?}"))
-            )?;
+            .map_err(|e| LocalStorageError::LoadContent(format!("{e:?}")))?;
         Ok(content)
     }
 
@@ -98,23 +96,23 @@ impl LocalStorage {
             StorageQueryMethod::NoOp => {
                 log::debug!("Local storage No Op");
                 Ok(StorageData::Nothing)
-            },
+            }
             StorageQueryMethod::ContentNoId => {
                 let path = self.get_content_path(&qry, vec![])?;
                 self.load_content(path)
-            },
+            }
             StorageQueryMethod::ContentNumId(id) => {
                 let path = self.get_content_path(&qry, vec![format!("{id}")])?;
                 self.load_content(path)
-            },
+            }
             StorageQueryMethod::RecentPages => {
                 // TODO    Get recent posts from local filesystem
                 Ok(StorageData::RecentPages(vec![]))
-            },
+            }
             StorageQueryMethod::PageTemplate(name) => {
                 let data = self.load_template(&name)?;
                 Ok(StorageData::Template(data))
-            },
+            }
             StorageQueryMethod::BaseTemplates => {
                 let mut base_templates = HashMap::new();
                 for template in self.base_templates.iter() {
@@ -122,13 +120,16 @@ impl LocalStorage {
                     base_templates.insert(template.clone(), data);
                 }
                 Ok(StorageData::BaseTemplate(base_templates))
-            },
+            }
         }
     }
 }
 
 impl StorageBackend for LocalStorage {
-    fn init(config: &Config) -> Self where Self: Sized {
+    fn init(config: &Config) -> Self
+    where
+        Self: Sized,
+    {
         config.local_storage.clone()
     }
 
@@ -142,7 +143,7 @@ impl StorageBackend for LocalStorage {
             Ok(data) => {
                 log::debug!("Local storage data: {data:?}");
                 data
-            },
+            }
             Err(e) => StorageData::Error(e),
         }
     }

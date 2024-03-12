@@ -1,10 +1,10 @@
-use std::hash::Hash;
 use parking_lot::RwLock;
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-pub trait CacheKey : Clone + Eq + Hash {}
-pub trait CacheVal : Clone + Sized {}
+pub trait CacheKey: Clone + Eq + Hash {}
+pub trait CacheVal: Clone + Sized {}
 
 impl<T: Clone + Eq + Hash> CacheKey for T {}
 impl<T: Clone + Sized> CacheVal for T {}
@@ -23,7 +23,9 @@ impl<K: CacheKey, V: CacheVal> std::fmt::Debug for Cache<K, V> {
         let tot_size = self.tot_size.load(Ordering::Relaxed);
         let nelements = self.data.read().len();
         let naccesses = self.tot_count.load(Ordering::Relaxed);
-        write!(f, "Cache {{ {tot_size}/{} bytes used, {} elements, {} accesses }}",
+        write!(
+            f,
+            "Cache {{ {tot_size}/{} bytes used, {} elements, {} accesses }}",
             self.size_limit, nelements, naccesses,
         )
     }
@@ -44,7 +46,11 @@ impl<K: CacheKey, V: CacheVal> Cache<K, V> {
         let tstart = std::time::Instant::now();
         self.tot_count.fetch_add(1, Ordering::Relaxed);
         let res = if let Some(data) = self.data.read().get(key) {
-            self.count.read().get(key).unwrap().fetch_add(1, Ordering::Relaxed);
+            self.count
+                .read()
+                .get(key)
+                .unwrap()
+                .fetch_add(1, Ordering::Relaxed);
             Some(data.clone())
         } else {
             None

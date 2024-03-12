@@ -18,7 +18,7 @@ pub struct PageMetadata {
 pub struct PageType {
     pub route: String,
     pub lang_detect: bool,
-    
+
     #[serde(default)]
     pub add_context: HashMap<String, ContextQuery>,
     pub default_template: TemplateSlug,

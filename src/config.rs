@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use actix_web::http::header;
 use actix_web::middleware::DefaultHeaders;
-use serde::{Deserialize, Serialize};
 use clap::Parser;
+use serde::{Deserialize, Serialize};
 use tera::Context;
 
 use crate::errors::Errcode;
@@ -41,8 +41,8 @@ impl Config {
         let args = Arguments::parse();
         let config_str = std::fs::read_to_string(args.config_file)
             .map_err(|e| Errcode::ConfigFileRead(Arc::new(e)))?;
-        let mut config : Config = toml::from_str(&config_str)
-            .map_err(|e| Errcode::TomlDecode("config file", e))?;
+        let mut config: Config =
+            toml::from_str(&config_str).map_err(|e| Errcode::TomlDecode("config file", e))?;
 
         for (slug, ptype) in config.page_type.iter_mut() {
             if ptype.storage.is_empty() {

@@ -1,5 +1,4 @@
-
-use actix_web::dev::{Payload, Path, Url};
+use actix_web::dev::{Path, Payload, Url};
 use actix_web::web::Data;
 use actix_web::{FromRequest, HttpRequest};
 use tera::Context;
@@ -36,9 +35,11 @@ impl FromRequest for RequestArgs {
 impl RequestArgs {
     pub fn get_query_id(&self, slug: &String) -> Result<u64, Errcode> {
         if let Some(id) = self.match_infos.get(slug) {
-            Ok(id.parse::<u64>().map_err(|e| Errcode::ContentIdParsing(e))?)
+            Ok(id
+                .parse::<u64>()
+                .map_err(|e| Errcode::ContentIdParsing(e))?)
         } else {
-           Err(Errcode::ParameterNotInUrl) 
+            Err(Errcode::ParameterNotInUrl)
         }
     }
 

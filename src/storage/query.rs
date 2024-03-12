@@ -88,7 +88,7 @@ impl StorageQuery {
             StorageQueryMethod::PageTemplate(ref n) => {
                 s.write_u8(4);
                 s.write(n.as_bytes());
-            },
+            }
             StorageQueryMethod::BaseTemplates => s.write_u8(5),
         }
         s.write_usize(self.limit);

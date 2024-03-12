@@ -1,4 +1,4 @@
-#![allow(dead_code, unused_variables)]    // TODO    Remove once dev finished
+#![allow(dead_code, unused_variables)] // TODO    Remove once dev finished
 use actix_web::middleware::{Compress, Logger};
 use actix_web::{web::Data, App, HttpServer};
 
@@ -18,7 +18,8 @@ async fn main() -> std::io::Result<()> {
     let storage = Data::new(storage::Storage::init(&config));
     let render = Data::new(
         render::Render::init(storage.clone().into_inner(), &config)
-            .await.expect("Error while initializing render engine")
+            .await
+            .expect("Error while initializing render engine"),
     );
     let base_context = Data::new(config.base_templating_context());
 

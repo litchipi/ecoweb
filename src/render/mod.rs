@@ -5,8 +5,8 @@ use tera::{Context, Tera};
 
 use crate::cache::Cache;
 use crate::config::Config;
-use crate::page::PageMetadata;
 use crate::errors::Errcode;
+use crate::page::PageMetadata;
 use crate::storage::{Storage, StorageQuery};
 
 pub type TemplateSlug = String;
@@ -44,7 +44,8 @@ impl Render {
     pub async fn add_template(&self, slug: String) -> Result<(), Errcode> {
         let qry = StorageQuery::template(slug.clone());
         let template = self.storage.query(qry).await.template()?;
-        self.engine.write()
+        self.engine
+            .write()
             .add_raw_template(slug.as_str(), template.as_str())?;
         self.templates_loaded.write().push(template);
         Ok(())
@@ -57,7 +58,9 @@ impl Render {
         ctxt: &Context,
     ) -> Result<String, Errcode> {
         // TODO    Render body from template using the engine
-        Ok(format!("<html><p>{body}</p><p>{md:?}</p><p>{ctxt:?}</p></html>"))
+        Ok(format!(
+            "<html><p>{body}</p><p>{md:?}</p><p>{ctxt:?}</p></html>"
+        ))
     }
 
     pub async fn render_error(&self, err: Errcode) -> String {

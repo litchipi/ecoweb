@@ -1,15 +1,15 @@
 use crate::cache::Cache;
 use crate::config::Config;
 
+pub mod backend;
 mod context;
 mod data;
 mod query;
-pub mod backend;
 
+use backend::StorageBackend;
 pub use context::ContextQuery;
 pub use data::StorageData;
 pub use query::StorageQuery;
-use backend::StorageBackend;
 
 pub type StorageSlug = String;
 
