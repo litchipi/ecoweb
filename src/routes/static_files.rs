@@ -21,7 +21,6 @@ impl StaticFilesRoute {
         storage: Data<Storage>,
     ) -> HttpResponse<BoxBody> {
         let mime = mime_guess::from_path(&fname).first_or_octet_stream();
-        log::debug!("Static file mime: {fname:?} = {mime:?}");
 
         let qry = StorageQuery::static_file(fname);
         match storage.query(qry).await.static_file() {

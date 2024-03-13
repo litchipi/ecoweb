@@ -14,6 +14,9 @@ pub struct PageMetadata {
     pub id: u64,
 
     #[serde(default)]
+    pub hidden: bool,
+
+    #[serde(default)]
     pub metadata: HashMap<String, serde_json::Value>,
 
     #[serde(default)]
@@ -24,6 +27,25 @@ pub struct PageMetadata {
 }
 
 impl PageMetadata {
+    pub fn get_metadata(&self, keys: &Vec<String>) -> Option<&serde_json::Value> {
+        if keys.is_empty() {
+            return None;
+        }
+        let mut keys_iter = keys.iter();
+        let mut val = self.metadata.get(keys_iter.next().unwrap());
+        for key in keys_iter {
+            if let Some(data) = val {
+                if data.is_object() {
+                    val = data.as_object().unwrap().get(key);
+                    continue;
+                }
+            } else {
+                return None;
+            }
+        }
+        val
+    }
+
     pub fn update_id(&mut self, page_name: String) {
         let mut s = DefaultHasher::new();
         s.write(format!("{:?}", self.metadata).as_bytes());

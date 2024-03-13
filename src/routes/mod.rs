@@ -17,19 +17,23 @@ use self::data_extract::RequestArgs;
 #[serde(tag = "method", content = "args")]
 #[serde(rename_all = "snake_case")]
 pub enum ContentQueryMethod {
+    // No content to get, but populate context
+    #[default]
+    EmptyContent,
+    
     // Get content slug from URL, with storage passed in parameter, has to be a str
     ContentSlug(String),
 
     // Get content ID from URL, with storage passed in parameter, has to be a number
     ContentId(String),
 
-    #[default]
     FromSlug,
 }
 
 impl ContentQueryMethod {
     pub fn build_query(&self, storage: &String, args: &RequestArgs) -> Result<StorageQuery, Errcode> {
         let method = match self {
+            ContentQueryMethod::EmptyContent => StorageQueryMethod::NoOp,
             ContentQueryMethod::ContentSlug(ref slug) => {
                 let slug = args.get_query_slug(slug)?;
                 StorageQueryMethod::ContentSlug(slug)

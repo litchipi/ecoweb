@@ -15,7 +15,7 @@ pub enum StorageQueryMethod {
     ContentNumId(u64),
     ContentSlug(String),
     RecentPages,
-    GetSimilarPages(MetadataFilter, serde_json::Value),
+    GetSimilarPages(MetadataFilter),
     PageTemplate(String),
     BaseTemplates,
     StaticFile(String),
@@ -59,8 +59,8 @@ impl StorageQuery {
     pub fn query_metadata(slug: &String, filter: MetadataFilter, qry: MetadataQuery) -> StorageQuery {
         StorageQueryMethod::QueryMetadata(filter, qry).build_query(slug)
     }
-    pub fn similar_pages(slug: &String, keys: MetadataFilter, val: serde_json::Value) -> StorageQuery {
-        StorageQueryMethod::GetSimilarPages(keys, val).build_query(slug)
+    pub fn similar_pages(slug: &String, keys: MetadataFilter) -> StorageQuery {
+        StorageQueryMethod::GetSimilarPages(keys).build_query(slug)
     }
     pub fn static_file(fname: String) -> StorageQuery {
         StorageQueryMethod::StaticFile(fname).build_query("static")
@@ -111,7 +111,7 @@ impl StorageQuery {
                 s.write_u8(6);
                 s.write(n.as_bytes());
             }
-            StorageQueryMethod::GetSimilarPages(ref keys, ref v) => {
+            StorageQueryMethod::GetSimilarPages((ref keys, ref v)) => {
                 s.write_u8(7);
                 for k in keys {
                     s.write(k.as_bytes());
@@ -124,9 +124,11 @@ impl StorageQuery {
             }
             StorageQueryMethod::QueryMetadata(ref filter, ref qry) => {
                 s.write_u8(9);
-                for f in filter {
+                let (keys, val) = filter;
+                for f in keys {
                     s.write(f.as_bytes());
                 }
+                s.write(format!("{val:?}").as_bytes());
                 for q in qry {
                     s.write(q.as_bytes());
                 }

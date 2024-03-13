@@ -24,12 +24,14 @@ impl Handler<RequestArgs> for PageHandler {
 
     // Function called every time we have a request to handle
     fn call(&self, args: RequestArgs) -> Self::Future {
+        let default_template = self.ptype.default_template.clone();
+        let add_ctxt = self.ptype.add_context.clone();
+
         let storage_query = match self.ptype.content_query.build_query(&self.ptype.storage, &args) {
             Ok(qry) => qry,
             Err(e) => return Box::pin(Self::error(args.render, e)),
         };
-        let default_template = self.ptype.default_template.clone();
-        let add_ctxt = self.ptype.add_context.clone();
+
         Box::pin(Self::respond(
             storage_query,
             add_ctxt,

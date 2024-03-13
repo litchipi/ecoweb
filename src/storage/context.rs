@@ -7,7 +7,7 @@ use crate::page::PageMetadata;
 use super::{Storage, StorageQuery};
 
 pub type MetadataQuery = Vec<String>;
-pub type MetadataFilter = Vec<String>;
+pub type MetadataFilter = (Vec<String>, Option<serde_json::Value>);
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "query", content = "args")]
@@ -15,11 +15,14 @@ pub type MetadataFilter = Vec<String>;
 pub enum ContextQuery {
     Plain(serde_json::Value),
     RecentPages(String, usize),
-    SimilarPagesFromMetadata(String, MetadataFilter, usize),
-    QueryMetadata(String, String, MetadataFilter, MetadataQuery),
+    SimilarPagesFromMetadata(String, MetadataQuery, usize),
+    SimilarPagesFromUri(String, MetadataQuery, String, usize),
+    QueryMetadata(String, MetadataQuery),
+    QueryFilterMetadata(String, MetadataFilter, MetadataQuery),
 }
 
 impl ContextQuery {
+    // TODO    Factorize as much as possible this code into separate functions
     pub async fn insert_context(
         &self,
         storage: &Storage,
@@ -42,32 +45,38 @@ impl ContextQuery {
                         Errcode::ContextQueryBuild("similar_pages_from_metadata", "empty keys".to_string())
                     );
                 }
-                let mut keys_iter = keys.iter();
-                let mut val = page_md.metadata.get(keys_iter.next().unwrap());
-                for key in keys_iter {
-                    if let Some(data) = val {
-                        if data.is_object() {
-                            val = data.as_object().unwrap().get(key);
-                            continue;
-                        }
-                    }
-                    log::trace!("Unable to build context query: {key} not contained in map");
-                    return Ok(());
-                }
-                let Some(val) = val else {
-                    log::trace!("Unable to build context query: value for this key is empty");
+                let Some(val) = page_md.get_metadata(keys) else {
+                    log::trace!("Not val found for keys {keys:?}");
                     return Ok(());
                 };
 
+                let qry = StorageQuery::similar_pages(slug, (keys.clone(), Some(val.clone())));
                 let val = storage
-                    .query(StorageQuery::similar_pages(slug, keys.clone(), val.clone()))
+                    .query(qry)
                     .await
                     .similar_pages()?;
                 ctxt.insert(name, &val);
             },
-            ContextQuery::QueryMetadata(slug, name, filter, queries) => {
-                let qry = StorageQuery::query_metadata(slug, filter.clone(), queries.clone());
+            ContextQuery::SimilarPagesFromUri(ref slug, ref keys, ref uri_slug, nb) => {
+                if keys.is_empty() {
+                    return Err(
+                        Errcode::ContextQueryBuild("similar_pages_from_metadata", "empty keys".to_string())
+                    );
+                }
+                // TODO IMPORTANT Get match info from args, and get value from it
+                // Then build the query for similar pages based on it
+                // ctxt.insert(name, &val);
+            }
+            ContextQuery::QueryMetadata(slug, query) => {
+                let qry = StorageQuery::query_metadata(slug, (vec![], None), query.clone());
                 let val = storage.query(qry).await.query_metadata()?;
+                log::debug!("{name} = {val:?}");
+                ctxt.insert(name, &val);
+            }
+            ContextQuery::QueryFilterMetadata(slug, filter, query) => {
+                let qry = StorageQuery::query_metadata(slug, filter.clone(), query.clone());
+                let val = storage.query(qry).await.query_metadata()?;
+                log::debug!("{name} = {val:?}");
                 ctxt.insert(name, &val);
             }
         }

@@ -12,7 +12,7 @@ pub enum StorageData {
     Nothing,
     RecentPages(Vec<PageMetadata>),
     SimilarPages(Vec<PageMetadata>),
-    QueryMetadata(serde_json::Value),
+    QueryMetadata(Vec<serde_json::Value>),
     PageContent {
         metadata: PageMetadata,
         body: String,
@@ -24,7 +24,7 @@ pub enum StorageData {
 }
 
 impl StorageData {
-    pub fn query_metadata(self) -> Result<serde_json::Value, Errcode> {
+    pub fn query_metadata(self) -> Result<Vec<serde_json::Value>, Errcode> {
         match self {
             StorageData::QueryMetadata(val) => Ok(val),
             StorageData::Error(e) => Err(Errcode::StorageError(e)),

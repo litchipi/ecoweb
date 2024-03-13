@@ -1,7 +1,9 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use actix_web::{HttpResponse, HttpResponseBuilder};
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
@@ -33,6 +35,11 @@ pub enum LocalStorageError {
     CreateDir(String),
     InitPaths(String),
     ScssProcess(ScssError),
+    NotDataDir(PathBuf),
+    ListFiles(String),
+    ListFilesPathUnwrap(String),
+    NoMatch(String),
+    TooManyMatches(usize, usize),
 }
 
 impl Into<HttpResponseBuilder> for LocalStorageError {
@@ -46,6 +53,9 @@ impl Into<HttpResponseBuilder> for LocalStorageError {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalStorage {
+    #[serde(skip)]
+    all_pages: Arc<RwLock<HashMap<String, Vec<(PathBuf, PageMetadata)>>>>,
+
     // Data
     data_root: PathBuf,
     supported_lang: Vec<String>,
@@ -111,28 +121,29 @@ impl LocalStorage {
         Ok(StorageData::StaticFileData(data))
     }
 
-    pub fn load_content(&self, path: PathBuf) -> Result<StorageData, LocalStorageError> {
+    pub fn load_content(&self, path: &Path) -> Result<(PageMetadata, String), LocalStorageError> {
         if !path.exists() {
-            return Err(LocalStorageError::DataNotFound(path));
+            return Err(LocalStorageError::DataNotFound(path.to_path_buf()));
         }
 
-        let content = std::fs::read_to_string(path.clone())
+        let content = std::fs::read_to_string(path)
             .map_err(|e| LocalStorageError::LoadContent(format!("{e:?}")))?;
 
         let mut split = content.split("---");
         let metadata = split.next().unwrap();
+
         let body = split
-            .next()
-            .ok_or(LocalStorageError::NoMetadataSplit)?
+            .collect::<Vec<&str>>()
+            .join("---")
             .to_string();
 
         let mut metadata: PageMetadata = toml::from_str(metadata)
             .map_err(|e| LocalStorageError::MetadataDecode(format!("{e:?}")))?;
         if metadata.id == 0 {
-            metadata.update_id(path.into_os_string().to_string_lossy().to_string());
+            metadata.update_id(path.to_string_lossy().to_string());
         }
 
-        Ok(StorageData::PageContent { metadata, body })
+        Ok((metadata, body))
     }
 
     pub fn load_template(&self, name: &String) -> Result<String, LocalStorageError> {
@@ -145,33 +156,93 @@ impl LocalStorage {
         Ok(content)
     }
 
+    fn all_pages_in_dir(&self, dirpath: &Path) -> Result<Vec<(PathBuf, PageMetadata)>, LocalStorageError> {
+        let all_paths = std::fs::read_dir(dirpath)
+            .map_err(|e| LocalStorageError::ListFiles(format!("{e:?}")))?;
+
+        let mut all_pages = vec![];
+        for path in all_paths {
+            let path = path
+                .map_err(|e| LocalStorageError::ListFilesPathUnwrap(format!("{e:?}")))?
+                .path();
+            if path.is_file() {
+                let (metadata, _) = self.load_content(&path)?;
+                all_pages.push((path, metadata));
+            } else if path.is_dir() {
+               all_pages.extend(self.all_pages_in_dir(&path)?); 
+            }
+        }
+        Ok(all_pages)
+    }
+
+    pub fn register_all_pages(&self, slug: &String) -> Result<(), LocalStorageError> {
+        let dirpath = self.data_root.join(slug);
+        if !dirpath.is_dir() {
+            return Err(LocalStorageError::NotDataDir(dirpath));
+        }
+        let all_pages = self.all_pages_in_dir(&dirpath)?;
+        log::debug!("Registerd {} pages in {slug}", all_pages.len());
+        self.all_pages.write().insert(slug.clone(), all_pages);
+        Ok(())
+    }
+
+    pub fn ensure_all_pages_loaded(&self, slug: &String) -> Result<(), LocalStorageError> {
+        let pages_reg = self.all_pages.read().contains_key(slug);
+        if !pages_reg {
+            self.register_all_pages(slug)?;
+        }
+        Ok(())
+    }
+
+    // TODO    Apply limit to all the queries returning a list of pages
     pub fn dispatch(&self, qry: StorageQuery) -> Result<StorageData, LocalStorageError> {
         match qry.method {
             StorageQueryMethod::NoOp => {
                 log::debug!("Local storage No Op");
                 Ok(StorageData::Nothing)
             }
+
             StorageQueryMethod::ContentNoId => {
                 let path = self.get_content_path(&qry, vec![])?;
-                self.load_content(path)
+                let (metadata, body) = self.load_content(&path)?;
+                Ok(StorageData::PageContent { metadata, body })
             }
+
             StorageQueryMethod::ContentNumId(id) => {
-                // TODO    FIXME    Get post file path from ID
-                let path = self.get_content_path(&qry, vec![format!("{id}").as_str()])?;
-                self.load_content(path)
+                self.ensure_all_pages_loaded(&qry.storage_slug)?;
+                let all_pages = self.all_pages.read();
+                let pages = all_pages.get(&qry.storage_slug).unwrap();
+                let mut matches = pages
+                    .iter()
+                    .filter(|(_, m)| m.id == id)
+                    .map(|(p, _)| p);
+                let Some(fpath) = matches.next() else {
+                    return Err(LocalStorageError::NoMatch(format!("id = {id}")));
+                };
+                let other_matches = matches.count();
+                if other_matches > 0 {
+                    return Err(LocalStorageError::TooManyMatches(other_matches, 1));
+                }
+                let (metadata, body) = self.load_content(fpath)?;
+                Ok(StorageData::PageContent { metadata, body })
             }
+
             StorageQueryMethod::ContentSlug(ref slug) => {
                 let path = self.get_content_path(&qry, vec![slug])?;
-                self.load_content(path)
+                let (metadata, body) = self.load_content(&path)?;
+                Ok(StorageData::PageContent { metadata, body })
             }
+
             StorageQueryMethod::RecentPages => {
-                // TODO    Get recent posts from local filesystem
+                // TODO    Query all posts, sort by date, pick N latest
                 Ok(StorageData::RecentPages(vec![]))
             }
+
             StorageQueryMethod::PageTemplate(name) => {
                 let data = self.load_template(&name)?;
                 Ok(StorageData::Template(data))
             }
+
             StorageQueryMethod::BaseTemplates => {
                 let mut base_templates = HashMap::new();
                 for template in self.base_templates.iter() {
@@ -180,6 +251,7 @@ impl LocalStorage {
                 }
                 Ok(StorageData::BaseTemplate(base_templates))
             }
+
             StorageQueryMethod::StaticFile(f) => {
                 let fpath = PathBuf::from(f.trim_start_matches("/"));
                 let parent = fpath
@@ -202,13 +274,33 @@ impl LocalStorage {
                 }
                 Err(LocalStorageError::DataNotFound(fpath))
             }
-            StorageQueryMethod::GetSimilarPages(keys, val) => {
-                // TODO    Get similar pages based on metadata key and value
-                Ok(StorageData::SimilarPages(vec![]))
+
+            StorageQueryMethod::GetSimilarPages((keys, val)) => {
+                self.ensure_all_pages_loaded(&qry.storage_slug)?;
+                let all_pages = self.all_pages.read();
+                let pages = all_pages.get(&qry.storage_slug).unwrap();
+                let matches = pages
+                    .iter()
+                    .filter(|(_, m)| m.get_metadata(&keys) == val.as_ref())
+                    .map(|(_, m)| m)
+                    .cloned()
+                    .collect::<Vec<PageMetadata>>();
+                Ok(StorageData::SimilarPages(matches))
             }
-            StorageQueryMethod::QueryMetadata(filter, query) => {
-                // TODO   IMPORTANT  Filter Metadata of all pages, returns the query
-                Ok(StorageData::Nothing)
+
+            StorageQueryMethod::QueryMetadata((keys, val), query) => {
+                self.ensure_all_pages_loaded(&qry.storage_slug)?;
+                let pages = self.all_pages.read().get(&qry.storage_slug).unwrap();
+                let all_pages = self.all_pages.read();
+                let pages = all_pages.get(&qry.storage_slug).unwrap();
+                let matches = pages
+                    .iter()
+                    .filter(|(_, m)| m.get_metadata(&keys) == val.as_ref())
+                    .map(|(_, m)| m.get_metadata(&query).cloned())
+                    .filter(|v| v.is_some())
+                    .map(|v| v.unwrap())
+                    .collect::<Vec<serde_json::Value>>();
+                Ok(StorageData::QueryMetadata(matches))
             }
         }
     }
@@ -229,6 +321,7 @@ impl StorageBackend for LocalStorage {
         Ok(storage)
     }
 
+    // TODO Put a time argument to check for updates
     async fn has_changed(&self, qry: &StorageQuery) -> bool {
         // TODO    Find a way to know when posts are changed or not
         false

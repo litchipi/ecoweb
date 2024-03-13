@@ -56,7 +56,6 @@ impl<K: CacheKey, V: CacheVal> Cache<K, V> {
         } else {
             None
         };
-        log::debug!("Got data from cache in {:?}", tstart.elapsed());
         res
     }
 
@@ -75,8 +74,6 @@ impl<K: CacheKey, V: CacheVal> Cache<K, V> {
             count.insert(key, AtomicUsize::new(1));
         }
         self.tot_size.fetch_add(1, Ordering::Relaxed);
-        log::debug!("Added data to cache in {:?}", tstart.elapsed());
-        log::debug!("{:?}", self);
     }
 
     pub fn make_space(&self, size: usize) {
