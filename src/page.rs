@@ -8,7 +8,7 @@ use crate::render::TemplateSlug;
 use crate::routes::ContentQueryMethod;
 use crate::storage::{ContextQuery, StorageSlug};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct PageMetadata {
     #[serde(default)]
     pub id: u64,
@@ -48,6 +48,7 @@ impl PageMetadata {
 
     pub fn update_id(&mut self, page_name: String) {
         let mut s = DefaultHasher::new();
+        // TODO IMPORTANT FIXME   This is not constant, hash metadata manually instead
         s.write(format!("{:?}", self.metadata).as_bytes());
         self.id = s.finish();
     }

@@ -216,6 +216,7 @@ impl LocalStorage {
                     .iter()
                     .filter(|(_, m)| m.id == id)
                     .map(|(p, _)| p);
+                log::debug!("{matches:?}");
                 let Some(fpath) = matches.next() else {
                     return Err(LocalStorageError::NoMatch(format!("id = {id}")));
                 };

@@ -8,10 +8,10 @@ use tera::Context;
 
 use super::data_extract::RequestArgs;
 use crate::errors::Errcode;
-use crate::page::PageType;
+use crate::page::{PageMetadata, PageType};
 use crate::render::Render;
-use crate::storage::ContextQuery;
-use crate::storage::{Storage, StorageQuery};
+use crate::storage::{ContextQuery, StorageQueryMethod};
+use crate::storage::StorageQuery;
 
 #[derive(Clone)]
 pub struct PageHandler {
@@ -63,18 +63,16 @@ impl PageHandler {
         }
 
         // Fine tune content query
-        if let Some(lang) = args.lang {
-            qry.set_lang(lang);
+        if let Some(ref lang) = args.lang {
+            qry.set_lang(lang.clone());
         }
 
         Self::build_response(
             args.render.clone(),
             Self::handle_request(qry,
-                &args.render,
-                &args.storage,
+                &args,
                 add_ctxt,
                 default_template,
-                args.base_context.as_ref().clone(),
             ).await,
         )
         .await
@@ -82,22 +80,21 @@ impl PageHandler {
 
     pub async fn handle_request(
         qry: StorageQuery,
-        render: &Render,
-        storage: &Storage,
+        args: &RequestArgs,
         add_ctxt: HashMap<String, ContextQuery>,
         default_template: String,
-        mut ctxt: Context,
     ) -> Result<String, Errcode> {
-        let (metadata, body) = storage.query(qry.clone()).await.page_content()?;
+        let mut ctxt = args.base_context.as_ref().clone();
+        let (metadata, body) = if let StorageQueryMethod::NoOp = qry.method {
+            (PageMetadata::default(), "".to_string())
+        } else {
+            args.storage.query(qry.clone()).await.page_content()?            
+        };
 
         ctxt.insert("id", &metadata.id);
         ctxt.insert("metadata", &metadata.metadata);
-        for (name, data) in add_ctxt {
-            data.insert_context(storage, &name, &metadata, &mut ctxt).await?;
-        }
-        for (name, data) in metadata.add_context.iter() {
-            data.insert_context(storage, name, &metadata, &mut ctxt).await?;
-        }
+        insert_add_context(&add_ctxt, &metadata, &args, &mut ctxt).await?;
+        insert_add_context(&metadata.add_context, &metadata, &args, &mut ctxt).await?;
 
         let template = if let Some(ref template) = metadata.template {
             template
@@ -105,10 +102,10 @@ impl PageHandler {
             &default_template
         };
 
-        let res = render
+        let res = args.render
             .render_content(template, body, &metadata, ctxt)
             .await?;
-        render.cache.add(qry, res.clone());
+        args.render.cache.add(qry, res.clone());
         Ok(res)
     }
 
@@ -128,4 +125,23 @@ impl PageHandler {
             Err(e) => Self::error(render, e).await,
         }
     }
+}
+
+pub async fn insert_add_context(
+    add_ctxt: &HashMap<String, ContextQuery>,
+    page_md: &PageMetadata,
+    args: &RequestArgs,
+    ctxt: &mut Context
+) -> Result<(), Errcode> {
+    for (name, context_query) in add_ctxt {
+        if let ContextQuery::Plain(d) = context_query {
+            ctxt.insert(name, d);
+            continue;
+        }
+
+        if let Some(qry) = context_query.get_storage_query(args, page_md)? {
+            let val = context_query.insert_data(name, ctxt, args.storage.query(qry).await)?;
+        }
+    }
+    Ok(())
 }

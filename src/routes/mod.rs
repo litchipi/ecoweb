@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{config::Config, errors::Errcode, storage::{StorageQuery, StorageQueryMethod}};
 
-use self::data_extract::RequestArgs;
+pub use self::data_extract::RequestArgs;
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "method", content = "args")]

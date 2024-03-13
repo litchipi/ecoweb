@@ -59,8 +59,11 @@ impl StorageQuery {
     pub fn query_metadata(slug: &String, filter: MetadataFilter, qry: MetadataQuery) -> StorageQuery {
         StorageQueryMethod::QueryMetadata(filter, qry).build_query(slug)
     }
-    pub fn similar_pages(slug: &String, keys: MetadataFilter) -> StorageQuery {
-        StorageQueryMethod::GetSimilarPages(keys).build_query(slug)
+    pub fn similar_pages(slug: &String, keys: MetadataFilter, nb: usize) -> StorageQuery {
+        let mut qry = StorageQueryMethod::GetSimilarPages(keys).build_query(slug);
+        qry.limit = nb;
+        qry.update_key();
+        qry
     }
     pub fn static_file(fname: String) -> StorageQuery {
         StorageQueryMethod::StaticFile(fname).build_query("static")
