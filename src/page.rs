@@ -1,6 +1,6 @@
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
-use std::hash::Hasher;
+use std::hash::{Hash, Hasher};
 
 use serde::{Deserialize, Serialize};
 
@@ -48,8 +48,13 @@ impl PageMetadata {
 
     pub fn update_id(&mut self, page_name: String) {
         let mut s = DefaultHasher::new();
-        // TODO IMPORTANT FIXME   This is not constant, hash metadata manually instead
-        s.write(format!("{:?}", self.metadata).as_bytes());
+        s.write_u8(if self.hidden { 1 } else { 0 });
+        let mut keys: Vec<&String> = self.metadata.keys().collect();
+        keys.sort();
+        for key in keys {
+            s.write(key.as_bytes());
+            hash_json(&mut s, self.metadata.get(key).unwrap());
+        }
         self.id = s.finish();
     }
 }
@@ -68,4 +73,21 @@ pub struct PageType {
 
     #[serde(default)]
     pub storage: StorageSlug,
+}
+
+pub fn hash_json(s: &mut DefaultHasher, val: &serde_json::Value) {
+    match val {
+        tera::Value::Null => s.write_u8(0),
+        tera::Value::Bool(b) => s.write_u8(if *b { 1 } else { 0 }),
+        tera::Value::Number(n) => n.hash(s),
+        tera::Value::String(t) => t.hash(s),
+        tera::Value::Array(arr) => arr.iter().for_each(|v| hash_json(s, v)),
+        tera::Value::Object(map) => {
+            let keys: Vec<&String> = map.keys().collect();
+            for k in keys {
+                s.write(k.as_bytes());
+                hash_json(s, map.get(k).unwrap());
+            }
+        },
+    }
 }
