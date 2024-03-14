@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{error::Error, sync::Arc};
 
 use actix_web::{HttpResponse, HttpResponseBuilder};
 
@@ -41,7 +41,7 @@ impl Into<HttpResponseBuilder> for Errcode {
 
 impl From<tera::Error> for Errcode {
     fn from(value: tera::Error) -> Self {
-        Errcode::RegisterTemplate(format!("{value:?}"))
+        Errcode::RegisterTemplate(value.to_string())
     }
 }
 

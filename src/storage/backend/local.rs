@@ -110,7 +110,6 @@ impl LocalStorage {
             path.push(t.to_string());
         }
         path.set_extension("md");
-        log::debug!("Path: {path:?}");
         Ok(path)
     }
 
@@ -181,7 +180,7 @@ impl LocalStorage {
             return Err(LocalStorageError::NotDataDir(dirpath));
         }
         let all_pages = self.all_pages_in_dir(&dirpath)?;
-        log::debug!("Registerd {} pages in {slug}", all_pages.len());
+        log::debug!("Registered {} pages in {slug}", all_pages.len());
         self.all_pages.write().insert(slug.clone(), all_pages);
         Ok(())
     }
@@ -216,7 +215,6 @@ impl LocalStorage {
                     .iter()
                     .filter(|(_, m)| m.id == id)
                     .map(|(p, _)| p);
-                log::debug!("{matches:?}");
                 let Some(fpath) = matches.next() else {
                     return Err(LocalStorageError::NoMatch(format!("id = {id}")));
                 };
@@ -280,9 +278,10 @@ impl LocalStorage {
                 self.ensure_all_pages_loaded(&qry.storage_slug)?;
                 let all_pages = self.all_pages.read();
                 let pages = all_pages.get(&qry.storage_slug).unwrap();
+                // TODO    FIXME    Filter out hidden posts from the selection
                 let matches = pages
                     .iter()
-                    .filter(|(_, m)| m.get_metadata(&keys) == val.as_ref())
+                    .filter(|(_, m)| !m.hidden && (m.get_metadata(&keys) == val.as_ref()))
                     .map(|(_, m)| m)
                     .cloned()
                     .collect::<Vec<PageMetadata>>();

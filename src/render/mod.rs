@@ -74,9 +74,10 @@ impl Render {
     }
 
     pub async fn render_error(&self, err: &Errcode) -> String {
+        log::warn!("Returning error to client:\n{err:?}");
         // TODO    Try to render error page
         //    If template doesn't exist, or fails to render, display a pure HTML message
-        format!("<html>Error: {err:?}</html>")
+        format!("<html><body><h1>Error:</h1><pre><code>{err:?}</code></pre></body></html>")
     }
 }
 
