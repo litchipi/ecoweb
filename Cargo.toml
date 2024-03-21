@@ -21,8 +21,10 @@ tera = "1.19.1"
 toml = "0.8.10"
 
 [features]
-default = [ "storage-local", "css_minify" ]
+default = [ "storage-local", "css_minify", "dev" ]
 minify = [ "css_minify" ]
+dev = ["hot-reloading"]
+hot-reloading = []
 
 # Local storage
 storage-local = []

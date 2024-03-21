@@ -32,7 +32,9 @@ impl PageMetadata {
         let key = key.to_string();
         let data = self.metadata.get(&key);
         let other = other.metadata.get(&key);
-        compare_tera_values(data, other)
+        let ord = compare_tera_values(data, other);
+        // By default, get from greater to lower
+        ord.reverse()
     }
 
     pub fn get_metadata(&self, keys: &Vec<String>) -> Option<&serde_json::Value> {

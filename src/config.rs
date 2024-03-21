@@ -30,6 +30,8 @@ pub struct Config {
     #[serde(default)]
     pub add_context: HashMap<String, serde_json::Value>,
 
+    page_config: PathBuf,
+
     #[serde(default)]
     pub page_type: HashMap<String, PageType>,
 
@@ -46,17 +48,20 @@ impl Config {
         let config_str = std::fs::read_to_string(&args.config_file)
             .map_err(|e| Errcode::ConfigFileRead(Arc::new(e)))?;
         let mut config: Config =
-            toml::from_str(&config_str).map_err(|e| {
-                println!("{}", e.to_string());
-                Errcode::TomlDecode("config file", e)
-            })?;
+            toml::from_str(&config_str).map_err(|e| Errcode::TomlDecode("config file", e))?;
         config.root = args.config_file.parent().unwrap().to_path_buf();
 
-        for (slug, ptype) in config.page_type.iter_mut() {
+        let page_def_str = std::fs::read_to_string(config.root.join(&config.page_config))
+            .map_err(|e| Errcode::ConfigFileRead(Arc::new(e)))?;
+        let mut page_def: HashMap<String, PageType> =
+            toml::from_str(&page_def_str).map_err(|e| Errcode::TomlDecode("page def", e))?;
+
+        for (slug, ptype) in page_def.iter_mut() {
             if ptype.storage.is_empty() {
                 ptype.storage = slug.clone();
             }
         }
+        config.page_type = page_def;
 
         Ok(config)
     }

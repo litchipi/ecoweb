@@ -44,7 +44,9 @@ impl<K: CacheKey, V: CacheVal> Cache<K, V> {
 
     #[allow(unreachable_code)]
     pub fn get(&self, key: &K) -> Option<V> {
+        #[cfg(feature = "hot-reloading")]
         return None;
+
         let tstart = std::time::Instant::now();
         self.tot_count.fetch_add(1, Ordering::Relaxed);
         let res = if let Some(data) = self.data.read().get(key) {

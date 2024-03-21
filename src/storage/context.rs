@@ -4,6 +4,7 @@ use tera::Context;
 use crate::{errors::Errcode, routes::RequestArgs};
 use crate::page::PageMetadata;
 
+use super::query::QueryListOptions;
 use super::{StorageData, StorageQuery};
 
 pub type MetadataQuery = Vec<String>;
@@ -14,9 +15,9 @@ pub type MetadataFilter = (Vec<String>, Option<serde_json::Value>);
 #[serde(rename_all = "snake_case")]
 pub enum ContextQuery {
     Plain(serde_json::Value),
-    RecentPages(String, usize),
-    SimilarPagesFromMetadata(String, MetadataQuery, usize),
-    SimilarPagesFromUri(String, MetadataQuery, String, usize),
+    RecentPages(String, QueryListOptions),
+    SimilarPagesFromMetadata(String, MetadataQuery, QueryListOptions),
+    SimilarPagesFromUri(String, MetadataQuery, String, QueryListOptions),
     QueryMetadata(String, MetadataQuery),
     QueryFilterMetadata(String, MetadataFilter, MetadataQuery),
 }
@@ -37,10 +38,10 @@ impl ContextQuery {
     pub fn get_storage_query(&self, args: &RequestArgs, page_md: &PageMetadata) -> Result<Option<StorageQuery>, Errcode> {
         match self {
             ContextQuery::Plain(d) => Ok(None),
-            ContextQuery::RecentPages(ref slug, nb) => {
-                Ok(Some(StorageQuery::recent_pages(slug, *nb)))
+            ContextQuery::RecentPages(ref slug, opts) => {
+                Ok(Some(StorageQuery::recent_pages(slug, opts)))
             }
-            ContextQuery::SimilarPagesFromMetadata(ref slug, ref keys, nb) => {
+            ContextQuery::SimilarPagesFromMetadata(ref slug, ref keys, opts) => {
                 if keys.is_empty() {
                     return Err(
                         Errcode::ContextQueryBuild("similar_pages_from_metadata", "empty keys".to_string())
@@ -54,11 +55,11 @@ impl ContextQuery {
                 let qry = StorageQuery::similar_pages(
                     slug,
                     (keys.clone(), Some(val.clone())),
-                    *nb,
+                    opts,
                 );
                 Ok(Some(qry))
             }
-            ContextQuery::SimilarPagesFromUri(ref slug, ref keys, ref uri_slug, nb) => {
+            ContextQuery::SimilarPagesFromUri(ref slug, ref keys, ref uri_slug, opts) => {
                 if keys.is_empty() {
                     return Err(
                         Errcode::ContextQueryBuild("similar_pages_from_uri", "empty keys".to_string())
@@ -68,7 +69,7 @@ impl ContextQuery {
                 let qry = StorageQuery::similar_pages(
                     slug,
                     (keys.clone(), Some(val.into())),
-                    *nb,
+                    opts,
                 );
                 Ok(Some(qry))
             }

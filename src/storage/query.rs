@@ -5,6 +5,16 @@ use serde::{Deserialize, Serialize};
 
 use super::context::{MetadataFilter, MetadataQuery};
 
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+pub struct QueryListOptions {
+    #[serde(default)]
+    limit: usize,
+    #[serde(default)]
+    sort_by: Option<String>,
+    #[serde(default)]
+    rev_sort: bool,
+}
+
 #[repr(u8)]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
 /// All the methods that a storage have to implement in order to work
@@ -41,7 +51,7 @@ pub struct StorageQuery {
     pub method: StorageQueryMethod,
     pub limit: usize,
     pub lang_pref: Option<Vec<String>>,
-    pub sort_by: Option<String>,
+    pub sort_by: Option<(String, bool)>,
 }
 
 impl std::hash::Hash for StorageQuery {
@@ -60,10 +70,9 @@ impl StorageQuery {
     pub fn query_metadata(slug: &String, filter: MetadataFilter, qry: MetadataQuery) -> StorageQuery {
         StorageQueryMethod::QueryMetadata(filter, qry).build_query(slug)
     }
-    pub fn similar_pages(slug: &String, keys: MetadataFilter, nb: usize) -> StorageQuery {
+    pub fn similar_pages(slug: &String, keys: MetadataFilter, opts: &QueryListOptions) -> StorageQuery {
         let mut qry = StorageQueryMethod::GetSimilarPages(keys).build_query(slug);
-        qry.limit = nb;
-        qry.update_key();
+        qry.list_opts(opts);
         qry
     }
     pub fn static_file(fname: String) -> StorageQuery {
@@ -75,10 +84,9 @@ impl StorageQuery {
     pub fn template(slug: String) -> StorageQuery {
         StorageQueryMethod::PageTemplate(slug).build_query("templates")
     }
-    pub fn recent_pages(slug: &String, nb: usize) -> StorageQuery {
+    pub fn recent_pages(slug: &String, opts: &QueryListOptions) -> StorageQuery {
         let mut qry = StorageQueryMethod::RecentPages.build_query(slug);
-        qry.limit = nb;
-        qry.update_key();
+        qry.list_opts(opts);
         qry
     }
     pub fn content(storage: &String, id: Option<u64>, slug: Option<String>) -> StorageQuery {
@@ -144,5 +152,11 @@ impl StorageQuery {
 
     pub fn set_lang(&mut self, lang: Vec<String>) {
         self.lang_pref = Some(lang);
+    }
+
+    pub fn list_opts(&mut self, opts: &QueryListOptions) {
+        self.limit = opts.limit;
+        self.sort_by = opts.sort_by.clone().map(|s| (s, opts.rev_sort));
+        self.update_key();
     }
 }

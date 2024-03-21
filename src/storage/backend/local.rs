@@ -59,7 +59,7 @@ pub struct LocalStorage {
     // Data
     data_root: PathBuf,
     supported_lang: Vec<String>,
-    default_sort_key: String,
+    default_sort: (String, bool),
 
     // Templates
     template_root: PathBuf,
@@ -188,18 +188,24 @@ impl LocalStorage {
 
     pub fn ensure_all_pages_loaded(&self, slug: &String) -> Result<(), LocalStorageError> {
         let pages_reg = self.all_pages.read().contains_key(slug);
-        if !pages_reg {
+        let hot_reload = false;
+
+        #[cfg(feature = "hot-reloading")]
+        let hot_reload = true;
+
+        if !pages_reg || hot_reload {
             self.register_all_pages(slug)?;
         }
+
         Ok(())
     }
 
     // TODO Create separate functions for each
     pub fn dispatch(&self, qry: StorageQuery) -> Result<StorageData, LocalStorageError> {
-        let sort_key = if let Some(ref sort_key) = qry.sort_by {
-            sort_key
+        let (sort_key, rev) = if let Some((ref sort_key, rev)) = qry.sort_by {
+            (sort_key, rev)
         } else {
-            &self.default_sort_key
+            (&self.default_sort.0, self.default_sort.1)
         };
 
         match qry.method {
@@ -250,6 +256,9 @@ impl LocalStorage {
                     .collect::<Vec<&(PathBuf, PageMetadata)>>();
                 
                 results.sort_by(|(_, a), (_, b)| a.compare_md(sort_key, b));
+                if rev {
+                    results.reverse();
+                }
 
                 let results = results.into_iter()
                     .cloned()
@@ -307,6 +316,9 @@ impl LocalStorage {
                     .collect::<Vec<&PageMetadata>>();
 
                 matches.sort_by(|a, b| a.compare_md(sort_key, b));
+                if rev {
+                    matches.reverse();
+                }
 
                 let matches = matches.into_iter()
                     .take(qry.limit)
