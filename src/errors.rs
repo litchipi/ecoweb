@@ -4,6 +4,7 @@ use actix_web::{HttpResponse, HttpResponseBuilder};
 
 use crate::storage::StorageErrorType;
 
+#[derive(Debug)]
 pub enum Errcode {
     // General
     FilesystemError(&'static str, Arc<std::io::Error>),
@@ -50,14 +51,14 @@ impl From<mdtrans::Errcode> for Errcode {
     }
 }
 
-impl std::fmt::Debug for Errcode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Errcode::TomlDecode(what, err) => {
-                writeln!(f, "Error decoding {what}:")?;
-                write!(f, "{}", err.to_string())
-            }
-            _ => write!(f, "{:?}", self),
-        }
-    }
-}
+// impl std::fmt::Debug for Errcode {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         match self {
+//             Errcode::TomlDecode(what, err) => {
+//                 writeln!(f, "Error decoding {what}:")?;
+//                 write!(f, "{}", err.to_string())
+//             }
+//             _ => write!(f, "{:?}", self),
+//         }
+//     }
+// }

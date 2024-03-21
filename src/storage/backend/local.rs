@@ -382,7 +382,11 @@ impl StorageBackend for LocalStorage {
     async fn query(&self, qry: StorageQuery) -> StorageData {
         match self.dispatch(qry) {
             Ok(data) => data,
-            Err(e) => StorageData::Error(e),
+            Err(e) => {
+                log::error!("{e:?}");
+                log::debug!("{}", std::mem::size_of::<StorageData>());
+                StorageData::Error(e)
+            },
         }
     }
 }

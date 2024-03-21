@@ -11,7 +11,7 @@ use crate::storage::{ContextQuery, StorageSlug};
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct PageMetadata {
-    #[serde(default)]
+    #[serde(default, deserialize_with="deserialize_id")]
     pub id: u64,
 
     #[serde(default)]
@@ -161,4 +161,13 @@ pub fn compare_tera_values(a: Option<&Value>, b: Option<&Value>) -> std::cmp::Or
                 _ => std::cmp::Ordering::Greater,
             }
         }
+}
+
+fn deserialize_id<'de, D>(deser: D) -> Result<u64, D::Error>
+    where D: serde::Deserializer<'de>
+{
+    log::debug!("Custom deserialize");
+    let val = serde_json::Value::deserialize(deser)?;
+    log::debug!("Got id: {val}");
+    Ok(val.as_u64().or(Some(0)).unwrap())
 }

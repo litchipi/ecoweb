@@ -24,6 +24,7 @@ pub enum StorageData {
 }
 
 impl StorageData {
+    #[inline]
     pub fn query_metadata(self) -> Result<Vec<serde_json::Value>, Errcode> {
         match self {
             StorageData::QueryMetadata(val) => Ok(val),
@@ -32,6 +33,7 @@ impl StorageData {
         }
     }
 
+    #[inline]
     pub fn similar_pages(self) -> Result<Vec<PageMetadata>, Errcode> {
         match self {
             StorageData::SimilarPages(pages) => Ok(pages),
@@ -40,6 +42,7 @@ impl StorageData {
         }
     }
 
+    #[inline]
     pub fn page_content(self) -> Result<(PageMetadata, String), Errcode> {
         match self {
             StorageData::PageContent { metadata, body } => Ok((metadata, body)),
@@ -48,6 +51,7 @@ impl StorageData {
         }
     }
 
+    #[inline]
     pub fn recent_pages(self) -> Result<Vec<PageMetadata>, Errcode> {
         match self {
             StorageData::RecentPages(pages) => Ok(pages),
@@ -56,6 +60,7 @@ impl StorageData {
         }
     }
 
+    #[inline]
     pub fn template(self) -> Result<String, Errcode> {
         match self {
             StorageData::Template(template_str) => Ok(template_str),
@@ -64,6 +69,7 @@ impl StorageData {
         }
     }
 
+    #[inline]
     pub fn base_templates(self) -> Result<HashMap<String, String>, Errcode> {
         match self {
             StorageData::BaseTemplate(tmap) => Ok(tmap),
@@ -72,6 +78,7 @@ impl StorageData {
         }
     }
 
+    #[inline]
     pub fn static_file(self) -> Result<Vec<u8>, Errcode> {
         match self {
             StorageData::StaticFileData(data) => Ok(data),
