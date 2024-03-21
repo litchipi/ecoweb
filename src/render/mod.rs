@@ -4,7 +4,6 @@ use std::sync::Arc;
 use parking_lot::RwLock;
 use tera::{try_get_value, Context, Tera};
 
-use crate::cache::Cache;
 use crate::config::Config;
 use crate::errors::Errcode;
 use crate::page::PageMetadata;
@@ -17,7 +16,6 @@ pub type TemplateSlug = String;
 mod markdown;
 
 pub struct Render {
-    pub cache: Cache<StorageQuery, String>,
     templates_loaded: RwLock<Vec<String>>,
     storage: Arc<Storage>,
     engine: Arc<RwLock<Tera>>,
@@ -39,7 +37,6 @@ impl Render {
         engine.add_raw_templates(base_templates)?;
         Ok(Render {
             storage,
-            cache: Cache::empty(1024), // TODO Get from config
             templates_loaded: RwLock::new(loaded),
             engine: Arc::new(RwLock::new(engine)),
             markdown_render: MarkdownRenderer::init(),
@@ -70,6 +67,10 @@ impl Render {
         self.add_template(template).await?;
         self.markdown_render.render_to_ctxt(body, &mut ctxt)?;
         let result = self.engine.read().render(template, &ctxt)?;
+
+        #[cfg(feature = "html_minify")]
+        let result = minify_html(result);
+        
         Ok(result)
     }
 
@@ -89,4 +90,9 @@ pub fn timestamp_to_date(
     let date = chrono::DateTime::from_timestamp(s, 0).unwrap();
     let val = tera::to_value(date.format("%d/%m/%Y").to_string())?;
     Ok(val)
+}
+
+// TODO    Minify HTML
+pub fn minify_html(html: String) -> String {
+    html
 }

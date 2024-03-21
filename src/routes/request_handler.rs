@@ -103,7 +103,6 @@ impl PageHandler {
         let res = args.render
             .render_content(template, body, &metadata, ctxt)
             .await?;
-        args.render.cache.add(qry, res.clone());
         Ok(res)
     }
 

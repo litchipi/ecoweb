@@ -115,9 +115,22 @@ impl LocalStorage {
     }
 
     pub fn load_static_file(&self, path: PathBuf) -> Result<StorageData, LocalStorageError> {
-        let data =
-            std::fs::read(path).map_err(|e| LocalStorageError::LoadStaticFile(e.to_string()))?;
-        // TODO    Catch javascript files here, pass through minification process
+        #[allow(unused_mut)]
+        let mut data = std::fs::read(&path)
+            .map_err(|e| LocalStorageError::LoadStaticFile(e.to_string()))?;
+
+        if let Some(ext) = path.extension() {
+            #[cfg(feature = "js_minify")]
+            if ext == "js" {
+                data = minify_js(data);
+            }
+
+            #[cfg(feature = "css_minify")]
+            if ext == "css" {
+                data = minify_css(data);
+            }
+        }
+
         Ok(StorageData::StaticFileData(data))
     }
 
@@ -263,7 +276,7 @@ impl LocalStorage {
                 let results = results.into_iter()
                     .cloned()
                     .map(|(p, m)| m)
-                    .take(qry.limit)
+                    .take(if qry.limit == 0 { usize::MAX } else { qry.limit })
                     .collect();
                 Ok(StorageData::RecentPages(results))
             }
@@ -321,7 +334,7 @@ impl LocalStorage {
                 }
 
                 let matches = matches.into_iter()
-                    .take(qry.limit)
+                    .take(if qry.limit == 0 { usize::MAX } else { qry.limit })
                     .cloned()
                     .collect::<Vec<PageMetadata>>();
                 Ok(StorageData::SimilarPages(matches))
@@ -372,4 +385,14 @@ impl StorageBackend for LocalStorage {
             Err(e) => StorageData::Error(e),
         }
     }
+}
+
+// TODO    CSS minification
+pub fn minify_css(css: Vec<u8>) -> Vec<u8> {
+    css
+}
+
+// TODO    Use this function once minify-js is fixed
+pub fn minify_js(data: Vec<u8>) -> Vec<u8> {
+    data
 }
