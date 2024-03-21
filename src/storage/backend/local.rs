@@ -59,6 +59,7 @@ pub struct LocalStorage {
     // Data
     data_root: PathBuf,
     supported_lang: Vec<String>,
+    default_sort_key: String,
 
     // Templates
     template_root: PathBuf,
@@ -193,8 +194,14 @@ impl LocalStorage {
         Ok(())
     }
 
-    // TODO    Apply limit to all the queries returning a list of pages
+    // TODO Create separate functions for each
     pub fn dispatch(&self, qry: StorageQuery) -> Result<StorageData, LocalStorageError> {
+        let sort_key = if let Some(ref sort_key) = qry.sort_by {
+            sort_key
+        } else {
+            &self.default_sort_key
+        };
+
         match qry.method {
             StorageQueryMethod::NoOp => {
                 log::debug!("Local storage No Op");
@@ -233,8 +240,23 @@ impl LocalStorage {
             }
 
             StorageQueryMethod::RecentPages => {
-                // TODO    Query all posts, sort by date, pick N latest
-                Ok(StorageData::RecentPages(vec![]))
+                self.ensure_all_pages_loaded(&qry.storage_slug)?;
+                let all_pages = self.all_pages.read();
+                let mut results = all_pages
+                    .get(&qry.storage_slug)
+                    .unwrap()
+                    .iter()
+                    .filter(|(_, m)| !m.hidden)
+                    .collect::<Vec<&(PathBuf, PageMetadata)>>();
+                
+                results.sort_by(|(_, a), (_, b)| a.compare_md(sort_key, b));
+
+                let results = results.into_iter()
+                    .cloned()
+                    .map(|(p, m)| m)
+                    .take(qry.limit)
+                    .collect();
+                Ok(StorageData::RecentPages(results))
             }
 
             StorageQueryMethod::PageTemplate(name) => {
@@ -278,11 +300,16 @@ impl LocalStorage {
                 self.ensure_all_pages_loaded(&qry.storage_slug)?;
                 let all_pages = self.all_pages.read();
                 let pages = all_pages.get(&qry.storage_slug).unwrap();
-                // TODO    FIXME    Filter out hidden posts from the selection
-                let matches = pages
+                let mut matches = pages
                     .iter()
                     .filter(|(_, m)| !m.hidden && (m.get_metadata(&keys) == val.as_ref()))
                     .map(|(_, m)| m)
+                    .collect::<Vec<&PageMetadata>>();
+
+                matches.sort_by(|a, b| a.compare_md(sort_key, b));
+
+                let matches = matches.into_iter()
+                    .take(qry.limit)
                     .cloned()
                     .collect::<Vec<PageMetadata>>();
                 Ok(StorageData::SimilarPages(matches))

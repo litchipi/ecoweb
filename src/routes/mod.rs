@@ -16,7 +16,6 @@ pub use self::data_extract::RequestArgs;
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "method", content = "args")]
 #[serde(rename_all = "snake_case")]
-// TODO    IMPORTANT    Remove this, use only context building and registered Tera functions
 pub enum ContentQueryMethod {
     // No content to get, but populate context
     #[default]

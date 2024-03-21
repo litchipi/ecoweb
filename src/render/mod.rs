@@ -86,7 +86,7 @@ pub fn timestamp_to_date(
     _: &HashMap<String, tera::Value>
 ) -> Result<tera::Value, tera::Error> {
     let s = try_get_value!("timestamp_to_date", "value", i64, val);
-    let date = chrono::NaiveDateTime::from_timestamp_opt(s, 0).unwrap();
+    let date = chrono::DateTime::from_timestamp(s, 0).unwrap();
     let val = tera::to_value(date.format("%d/%m/%Y").to_string())?;
     Ok(val)
 }

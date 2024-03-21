@@ -55,13 +55,6 @@ impl PageHandler {
         default_template: String,
         args: RequestArgs,
     ) -> HttpResponse<BoxBody> {
-        // TODO    This function has to be only when nothing changed, including context
-        if !args.storage.has_changed(&qry).await {
-            if let Some(cached) = args.render.cache.get(&qry) {
-                return Self::build_response(args.render, Ok(cached)).await;
-            }
-        }
-
         // Fine tune content query
         if let Some(ref lang) = args.lang {
             qry.set_lang(lang.clone());
@@ -144,11 +137,13 @@ pub async fn insert_add_context(
             continue;
         }
 
-        if let Some(qry) = context_query.get_storage_query(args, page_md)? {
+        if let Some(mut qry) = context_query.get_storage_query(args, page_md)? {
+            if let Some(ref lang) = args.lang {
+                qry.set_lang(lang.clone());
+            }
+
             let val = context_query.insert_data(name, ctxt, args.storage.query(qry).await)?;
         }
-
-        // TODO    Set the lang parameter on the storage query
     }
     Ok(())
 }

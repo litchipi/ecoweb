@@ -41,6 +41,7 @@ pub struct StorageQuery {
     pub method: StorageQueryMethod,
     pub limit: usize,
     pub lang_pref: Option<Vec<String>>,
+    pub sort_by: Option<String>,
 }
 
 impl std::hash::Hash for StorageQuery {
