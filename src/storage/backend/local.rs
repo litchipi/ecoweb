@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use actix_web::{HttpResponse, HttpResponseBuilder};
 use parking_lot::RwLock;
+use path_absolutize::Absolutize;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
@@ -48,6 +49,8 @@ pub enum LocalStorageError {
     ListFilesPathUnwrap(String),
 
     ScssProcess(ScssError),
+
+    AttackSuspected(String),
 }
 
 impl Into<HttpResponseBuilder> for LocalStorageError {
@@ -304,22 +307,24 @@ impl LocalStorage {
 
             StorageQueryMethod::StaticFile(f) => {
                 let fpath = PathBuf::from(f.trim_start_matches("/"));
-                let parent = fpath
-                    .components()
-                    .nth(0)
-                    .ok_or(LocalStorageError::BadRequest(
-                        "static file no /".to_string(),
-                    ))?;
                 for inc in self.include_assets.iter() {
-                    let last = inc.components().last().unwrap();
-                    if last == parent {
-                        let path = inc.join(fpath.strip_prefix(parent).unwrap());
-                        let path = path
-                            .canonicalize()
-                            .map_err(|e| LocalStorageError::DataNotFound(path))?;
-                        if path.starts_with(inc) {
-                            return self.load_static_file(path);
-                        }
+                    let try_path = inc.join(&fpath);
+                    let try_path = try_path.absolutize().map_err(|e|
+                        LocalStorageError::BadRequest(
+                            format!("Absolutize {fpath:?}: {e:?}")
+                        )
+                    )?;
+
+                    if !try_path.starts_with(inc) {
+                        log::error!("Possible directory traversal attack spotted");
+                        log::error!("Got a request for static file {fpath:?}");
+                        return Err(LocalStorageError::AttackSuspected(
+                            "local-storage::static-file::directory-traversal".to_string()
+                        ));
+                    }
+
+                    if try_path.exists() {
+                        return self.load_static_file(try_path.into_owned());
                     }
                 }
                 Err(LocalStorageError::DataNotFound(fpath))
