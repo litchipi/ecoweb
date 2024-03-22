@@ -72,6 +72,8 @@ impl PageMetadata {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PageType {
     pub route: String,
+
+    #[serde(default)]
     pub lang_detect: bool,
 
     #[serde(default)]
