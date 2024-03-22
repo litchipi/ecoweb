@@ -324,7 +324,14 @@ impl LocalStorage {
                 let pages = all_pages.get(&qry.storage_slug).unwrap();
                 let mut matches = pages
                     .iter()
-                    .filter(|(_, m)| !m.hidden && (m.get_metadata(&keys) == val.as_ref()))
+                    .filter(|(_, m)| !m.hidden && {
+                        let valcmp = m.get_metadata(&keys);
+                        match (valcmp, val.as_ref()) {
+                            (Some(md), Some(val)) => compare_similar_md(md, val),
+                            (Some(_), None) | (None, Some(_)) => false,
+                            (None, None) => true,
+                        }
+                    })
                     .map(|(_, m)| m)
                     .collect::<Vec<&PageMetadata>>();
 
@@ -398,4 +405,17 @@ pub fn minify_css(css: Vec<u8>) -> Vec<u8> {
 // TODO    Use this function once minify-js is fixed
 pub fn minify_js(data: Vec<u8>) -> Vec<u8> {
     data
+}
+
+fn compare_similar_md(a: &serde_json::Value, b: &serde_json::Value) -> bool {
+    if a.is_array() && b.is_array() {
+        return a == b;
+    }
+    if a.is_array() {
+        return a.as_array().unwrap().contains(b);
+    }
+    if b.is_array() {
+        return b.as_array().unwrap().contains(a);
+    }
+    a == b
 }
