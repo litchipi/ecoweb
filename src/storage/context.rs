@@ -15,9 +15,13 @@ pub type MetadataFilter = (Vec<String>, Option<serde_json::Value>);
 #[serde(rename_all = "snake_case")]
 pub enum ContextQuery {
     Plain(serde_json::Value),
+
+    // Query pages
     RecentPages(String, QueryListOptions),
     SimilarPagesFromMetadata(String, MetadataQuery, QueryListOptions),
     SimilarPagesFromUri(String, MetadataQuery, String, QueryListOptions),
+
+    // Query metadata from pages
     QueryMetadata(String, MetadataQuery),
     QueryFilterMetadata(String, MetadataFilter, MetadataQuery),
 }

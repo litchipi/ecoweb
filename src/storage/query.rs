@@ -21,13 +21,21 @@ pub struct QueryListOptions {
 pub enum StorageQueryMethod {
     #[default]
     NoOp = 0,
+
+    // Query page content
     ContentNoId,
     ContentNumId(u64),
     ContentSlug(String),
+
+    // Query other pages
     RecentPages,
     GetSimilarPages(MetadataFilter),
+
+    // Query template
     PageTemplate(String),
     BaseTemplates,
+
+    // Query data
     StaticFile(String),
     QueryMetadata(MetadataFilter, MetadataQuery),
 }
@@ -123,12 +131,14 @@ impl StorageQuery {
                 s.write_u8(6);
                 s.write(n.as_bytes());
             }
-            StorageQueryMethod::GetSimilarPages((ref keys, ref v)) => {
+            StorageQueryMethod::GetSimilarPages((ref keys, ref v_opt)) => {
                 s.write_u8(7);
                 for k in keys {
                     s.write(k.as_bytes());
                 }
-                s.write(format!("{v:?}").as_bytes());
+                if let Some(v) = v_opt {
+                    crate::page::hash_json(&mut s, v);
+                }
             }
             StorageQueryMethod::ContentSlug(ref slug) => {
                 s.write_u8(8);
@@ -136,11 +146,13 @@ impl StorageQuery {
             }
             StorageQueryMethod::QueryMetadata(ref filter, ref qry) => {
                 s.write_u8(9);
-                let (keys, val) = filter;
+                let (keys, val_opt) = filter;
                 for f in keys {
                     s.write(f.as_bytes());
                 }
-                s.write(format!("{val:?}").as_bytes());
+                if let Some(val) = val_opt {
+                    crate::page::hash_json(&mut s, val);
+                }
                 for q in qry {
                     s.write(q.as_bytes());
                 }

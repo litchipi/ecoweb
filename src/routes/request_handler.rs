@@ -94,10 +94,6 @@ impl PageHandler {
             ctxt.insert("lang", lang);
         }
 
-        // TODO    Use Tera functions to query storage for more context
-        //    Register a function that creates a storage query to get context.
-        //    It will call them at render time, only if necessary
-        //    and will remove need for some config-defined ones.
         insert_add_context(&add_ctxt, &metadata, &args, &mut ctxt).await?;
         insert_add_context(&metadata.add_context, &metadata, &args, &mut ctxt).await?;
 
