@@ -10,7 +10,7 @@ pub struct QueryListOptions {
     #[serde(default)]
     limit: usize,
     #[serde(default)]
-    sort_by: Option<String>,
+    sort_by: Option<Vec<String>>,
     #[serde(default)]
     rev_sort: bool,
 }
@@ -51,7 +51,7 @@ pub struct StorageQuery {
     pub method: StorageQueryMethod,
     pub limit: usize,
     pub lang_pref: Option<Vec<String>>,
-    pub sort_by: Option<(String, bool)>,
+    pub sort_by: Option<(Vec<String>, bool)>,
 }
 
 impl std::hash::Hash for StorageQuery {

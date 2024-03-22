@@ -29,10 +29,9 @@ pub struct PageMetadata {
 }
 
 impl PageMetadata {
-    pub fn compare_md<T: ToString>(&self, key: T, other: &Self) -> std::cmp::Ordering {
-        let key = key.to_string();
-        let data = self.metadata.get(&key);
-        let other = other.metadata.get(&key);
+    pub fn compare_md(&self, keys: &Vec<String>, other: &Self) -> std::cmp::Ordering {
+        let data = self.get_metadata(&keys);
+        let other = other.get_metadata(&keys);
         let ord = compare_tera_values(data, other);
         // By default, get from greater to lower
         ord.reverse()

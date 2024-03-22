@@ -59,7 +59,7 @@ pub struct LocalStorage {
     // Data
     data_root: PathBuf,
     supported_lang: Vec<String>,
-    default_sort: (String, bool),
+    default_sort: (Vec<String>, bool),
 
     // Templates
     template_root: PathBuf,
