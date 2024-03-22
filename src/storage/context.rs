@@ -24,6 +24,9 @@ pub enum ContextQuery {
     // Query metadata from pages
     QueryMetadata(String, MetadataQuery),
     QueryFilterMetadata(String, MetadataFilter, MetadataQuery),
+
+    // Query content
+    QueryContent(String, String),
 }
 
 impl ContextQuery {
@@ -84,6 +87,9 @@ impl ContextQuery {
             ContextQuery::QueryFilterMetadata(slug, filter, query) => {
                 Ok(Some(StorageQuery::query_metadata(slug, filter.clone(), query.clone())))
             }
+            ContextQuery::QueryContent(slug, name) => {
+                Ok(Some(StorageQuery::query_content(slug, name.clone())))
+            },
         }
     }
 }

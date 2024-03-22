@@ -37,6 +37,7 @@ pub enum StorageQueryMethod {
 
     // Query data
     StaticFile(String),
+    QueryContent(String),
     QueryMetadata(MetadataFilter, MetadataQuery),
 }
 
@@ -75,6 +76,10 @@ impl std::cmp::PartialEq for StorageQuery {
 }
 
 impl StorageQuery {
+    pub fn query_content(slug: &String, name: String) -> StorageQuery {
+        StorageQueryMethod::QueryContent(name).build_query(slug)
+    }
+
     pub fn query_metadata(slug: &String, filter: MetadataFilter, qry: MetadataQuery) -> StorageQuery {
         StorageQueryMethod::QueryMetadata(filter, qry).build_query(slug)
     }
@@ -157,6 +162,10 @@ impl StorageQuery {
                     s.write(q.as_bytes());
                 }
             }
+            StorageQueryMethod::QueryContent(ref name) => {
+                s.write_u8(10);
+                s.write(name.as_bytes());
+            },
         }
         s.write_usize(self.limit);
         self.key = s.finish();

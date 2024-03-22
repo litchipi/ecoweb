@@ -363,6 +363,10 @@ impl LocalStorage {
                     .collect::<Vec<serde_json::Value>>();
                 Ok(StorageData::QueryMetadata(matches))
             }
+            StorageQueryMethod::QueryContent(name) => {
+                // TODO   IMPORTANT    Query a content from this key
+                todo!()
+            },
         }
     }
 }
