@@ -26,6 +26,7 @@ impl Handler<RequestArgs> for PageHandler {
     fn call(&self, args: RequestArgs) -> Self::Future {
         let default_template = self.ptype.default_template.clone();
         let add_ctxt = self.ptype.add_context.clone();
+        let add_headers = self.ptype.add_headers.clone();
 
         let storage_query = match self.ptype.content_query.build_query(&self.ptype.storage, &args) {
             Ok(qry) => qry,
@@ -35,6 +36,7 @@ impl Handler<RequestArgs> for PageHandler {
         Box::pin(Self::respond(
             storage_query,
             add_ctxt,
+            add_headers,
             default_template,
             args,
         ))
@@ -52,6 +54,7 @@ impl PageHandler {
     pub async fn respond(
         mut qry: StorageQuery, // Content query
         add_ctxt: HashMap<String, ContextQuery>,
+        add_headers: HashMap<String, String>,
         default_template: String,
         args: RequestArgs,
     ) -> HttpResponse<BoxBody> {
@@ -62,6 +65,7 @@ impl PageHandler {
 
         Self::build_response(
             args.render.clone(),
+            add_headers,
             Self::handle_request(qry,
                 &args,
                 add_ctxt,
@@ -114,11 +118,17 @@ impl PageHandler {
 
     pub async fn build_response(
         render: Data<Render>,
+        add_headers: HashMap<String, String>,
         body: Result<String, Errcode>,
     ) -> HttpResponse {
-        // TODO    Additionnal headers here
         match body {
-            Ok(text) => HttpResponse::Ok().body(text),
+            Ok(text) => {
+                let mut reply = HttpResponse::Ok();
+                for (key, val) in add_headers {
+                    reply.append_header((key, val));
+                }
+                reply.body(text)
+            }
             Err(e) => Self::error(render, e).await,
         }
     }

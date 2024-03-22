@@ -85,6 +85,9 @@ pub struct PageType {
 
     #[serde(default)]
     pub storage: StorageSlug,
+
+    #[serde(default)]
+    pub add_headers: HashMap<String, String>,
 }
 
 pub fn hash_json(s: &mut DefaultHasher, val: &serde_json::Value) {
