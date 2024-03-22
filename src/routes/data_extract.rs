@@ -1,4 +1,5 @@
 use actix_web::dev::{Path, Payload, Url};
+use actix_web::http::header;
 use actix_web::web::Data;
 use actix_web::{FromRequest, HttpRequest};
 use tera::Context;
@@ -54,10 +55,20 @@ impl RequestArgs {
     }
 }
 
-// TODO   IMPORTANT     Get lang from request
 fn get_lang(req: &HttpRequest) -> Option<Vec<String>> {
-    // Get langs from headers or GET params
-    None
+    req.headers().get(header::ACCEPT_LANGUAGE).map(|langs| {
+        let mut res = langs.to_str().unwrap()
+            .split(",")
+            .map(|l| l
+                .split(";").nth(0).unwrap()
+                .split("-").nth(0).unwrap()
+                .to_lowercase()
+            )
+            .collect::<Vec<String>>();
+        res.sort();
+        res.dedup();
+        res
+    })
 }
 
 fn get_from_req<T: 'static>(req: &HttpRequest) -> Data<T> {

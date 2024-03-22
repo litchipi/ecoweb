@@ -32,12 +32,13 @@ pub enum ContextQuery {
 impl ContextQuery {
     pub fn insert_data(&self, name: &String, ctxt: &mut Context, data: StorageData) -> Result<(), Errcode> {
             match self {
-                ContextQuery::RecentPages(_, _) => ctxt.insert(name, &data.recent_pages()?),
-                ContextQuery::SimilarPagesFromMetadata(_, _, _) => ctxt.insert(name, &data.similar_pages()?),
-                ContextQuery::SimilarPagesFromUri(_, _, _, _) => ctxt.insert(name, &data.similar_pages()?),
-                ContextQuery::QueryMetadata(_, _) => ctxt.insert(name, &data.query_metadata()?),
-                ContextQuery::QueryFilterMetadata(_, _, _) => ctxt.insert(name, &data.query_metadata()?),
-                _ => {},
+                ContextQuery::Plain(..) => {},
+                ContextQuery::RecentPages(..) => ctxt.insert(name, &data.recent_pages()?),
+                ContextQuery::SimilarPagesFromMetadata(..) => ctxt.insert(name, &data.similar_pages()?),
+                ContextQuery::SimilarPagesFromUri(..) => ctxt.insert(name, &data.similar_pages()?),
+                ContextQuery::QueryMetadata(..) => ctxt.insert(name, &data.query_metadata()?),
+                ContextQuery::QueryFilterMetadata(..) => ctxt.insert(name, &data.query_metadata()?),
+                ContextQuery::QueryContext(..) => ctxt.insert(name, &data.context()?),
             }
             Ok(())
     }

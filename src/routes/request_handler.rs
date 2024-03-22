@@ -24,6 +24,7 @@ impl Handler<RequestArgs> for PageHandler {
 
     // Function called every time we have a request to handle
     fn call(&self, args: RequestArgs) -> Self::Future {
+        log::debug!("Handling request with lang {:?}", args.lang);
         let default_template = self.ptype.default_template.clone();
         let add_ctxt = self.ptype.add_context.clone();
         let add_headers = self.ptype.add_headers.clone();
@@ -90,6 +91,7 @@ impl PageHandler {
 
         ctxt.insert("id", &metadata.id);
         ctxt.insert("metadata", &metadata.metadata);
+        ctxt.insert("route", &args.uri);
         if let Some(ref lang) = lang_opt {
             ctxt.insert("lang", lang);
         }

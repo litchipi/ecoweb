@@ -376,10 +376,10 @@ impl LocalStorage {
             StorageQueryMethod::QueryContext(ref name) => {
                 let path = self.get_content_path(&qry, Some(name), lang.as_ref(), Some("toml"))?;
                 let data = std::fs::read_to_string(&path)
-                    .map_err(|e| LocalStorageError::LoadContext(format!("{e:?}")))?;
+                    .map_err(|e| LocalStorageError::LoadContext(format!("{path:?}: {e:?}")))?;
                 let ctxt : toml::Value = toml::from_str(&data)
-                    .map_err(|e| LocalStorageError::TomlDecode(format!("{e:?}")))?;
-                Ok(StorageData::Context { lang, data: ctxt })
+                    .map_err(|e| LocalStorageError::TomlDecode(format!("{path:?}: {e:?}")))?;
+                Ok(StorageData::Context(ctxt))
             }
         }
     }

@@ -22,7 +22,7 @@ pub enum StorageData {
     BaseTemplate(HashMap<String, String>),
     StaticFileData(Vec<u8>),
     Error(StorageErrorType),
-    Context { lang: Option<String>, data: toml::Value },
+    Context(toml::Value),
 }
 
 impl StorageData {
@@ -86,6 +86,15 @@ impl StorageData {
             StorageData::StaticFileData(data) => Ok(data),
             StorageData::Error(e) => Err(Errcode::StorageError(e)),
             _ => Err(Errcode::WrongStorageData("StaticFileData")),
+        }
+    }
+
+    #[inline]
+    pub  fn context(self) -> Result<toml::Value, Errcode> {
+        match self {
+            StorageData::Context(data) => Ok(data),
+            StorageData::Error(e) => Err(Errcode::StorageError(e)),
+            _ => Err(Errcode::WrongStorageData("Context"))
         }
     }
 }
