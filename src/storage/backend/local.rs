@@ -25,21 +25,29 @@ fn canonicalize_to_root(path: &mut PathBuf, root: &PathBuf) -> Result<(), LocalS
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum LocalStorageError {
     LangNotSupported(Vec<String>),
-    TemplateNotFound(PathBuf),
-    DataNotFound(PathBuf),
+
     LoadContent(String),
     LoadStaticFile(String),
-    MetadataDecode(String),
+    LoadContext(String),
+
+    DataNotFound(PathBuf),
+    TemplateNotFound(PathBuf),
+
+    NoMatch(String),
+    TooManyMatches(usize, usize),
+
+    TomlDecode(String),
     NoMetadataSplit,
+
     BadRequest(String),
-    CreateDir(String),
+
     InitPaths(String),
-    ScssProcess(ScssError),
+    CreateDir(String),
     NotDataDir(PathBuf),
     ListFiles(String),
     ListFilesPathUnwrap(String),
-    NoMatch(String),
-    TooManyMatches(usize, usize),
+
+    ScssProcess(ScssError),
 }
 
 impl Into<HttpResponseBuilder> for LocalStorageError {
@@ -92,28 +100,6 @@ impl LocalStorage {
         Ok(())
     }
 
-    pub fn get_content_path(
-        &self,
-        qry: &StorageQuery,
-        tail: Vec<&str>,
-    ) -> Result<PathBuf, LocalStorageError> {
-        let mut path = self.data_root.join(qry.storage_slug.clone());
-        if let Some(ref lang) = qry.lang_pref {
-            for l in lang.iter() {
-                if self.supported_lang.contains(l) {
-                    path.push(l);
-                    break;
-                }
-            }
-            return Err(LocalStorageError::LangNotSupported(lang.clone()));
-        }
-        for t in tail {
-            path.push(t.to_string());
-        }
-        path.set_extension("md");
-        Ok(path)
-    }
-
     pub fn load_static_file(&self, path: PathBuf) -> Result<StorageData, LocalStorageError> {
         #[allow(unused_mut)]
         let mut data = std::fs::read(&path)
@@ -134,6 +120,26 @@ impl LocalStorage {
         Ok(StorageData::StaticFileData(data))
     }
 
+    pub fn get_content_path(
+        &self,
+        qry: &StorageQuery,
+        name: Option<&str>,
+        lang: Option<&String>,
+        ext: Option<&str>,
+    ) -> Result<PathBuf, LocalStorageError> {
+        let mut path = self.data_root.join(qry.storage_slug.clone());
+        if let Some(lang) = self.select_lang(qry)? {
+            path.push(lang);
+        }
+        if let Some(name) = name {
+            path.push(name);
+        }
+        if let Some(ext) = ext {
+            path.set_extension(ext);
+        }
+        Ok(path)
+    }
+
     pub fn load_content(&self, path: &Path) -> Result<(PageMetadata, String), LocalStorageError> {
         if !path.exists() {
             return Err(LocalStorageError::DataNotFound(path.to_path_buf()));
@@ -151,7 +157,7 @@ impl LocalStorage {
             .to_string();
 
         let mut metadata: PageMetadata = toml::from_str(metadata)
-            .map_err(|e| LocalStorageError::MetadataDecode(format!("{e:?}")))?;
+            .map_err(|e| LocalStorageError::TomlDecode(format!("{e:?}")))?;
         if metadata.id == 0 {
             metadata.update_id(path.to_string_lossy().to_string());
         }
@@ -220,8 +226,7 @@ impl LocalStorage {
         } else {
             (&self.default_sort.0, self.default_sort.1)
         };
-        // TODO    IMPORTANT        Get content based on lang if defined
-        let lang = None;
+        let lang = self.select_lang(&qry)?;
 
         match qry.method {
             StorageQueryMethod::NoOp => {
@@ -230,7 +235,7 @@ impl LocalStorage {
             }
 
             StorageQueryMethod::ContentNoId => {
-                let path = self.get_content_path(&qry, vec![])?;
+                let path = self.get_content_path(&qry, None, lang.as_ref(), Some("md"))?;
                 let (metadata, body) = self.load_content(&path)?;
                 Ok(StorageData::PageContent { metadata, body, lang })
             }
@@ -254,8 +259,8 @@ impl LocalStorage {
                 Ok(StorageData::PageContent { metadata, body, lang })
             }
 
-            StorageQueryMethod::ContentSlug(ref slug) => {
-                let path = self.get_content_path(&qry, vec![slug])?;
+            StorageQueryMethod::ContentSlug(ref name) => {
+                let path = self.get_content_path(&qry, Some(name), lang.as_ref(), Some("md"))?;
                 let (metadata, body) = self.load_content(&path)?;
                 Ok(StorageData::PageContent { metadata, body, lang })
             }
@@ -363,10 +368,27 @@ impl LocalStorage {
                     .collect::<Vec<serde_json::Value>>();
                 Ok(StorageData::QueryMetadata(matches))
             }
-            StorageQueryMethod::QueryContent(name) => {
-                // TODO   IMPORTANT    Query a content from this key
-                todo!()
-            },
+            StorageQueryMethod::QueryContext(ref name) => {
+                let path = self.get_content_path(&qry, Some(name), lang.as_ref(), Some("toml"))?;
+                let data = std::fs::read_to_string(&path)
+                    .map_err(|e| LocalStorageError::LoadContext(format!("{e:?}")))?;
+                let ctxt : toml::Value = toml::from_str(&data)
+                    .map_err(|e| LocalStorageError::TomlDecode(format!("{e:?}")))?;
+                Ok(StorageData::Context { lang, data: ctxt })
+            }
+        }
+    }
+
+    pub fn select_lang(&self, qry: &StorageQuery) -> Result<Option<String>, LocalStorageError> {
+        if let Some(ref lang) = qry.lang_pref {
+            for l in lang.iter() {
+                if self.supported_lang.contains(l) {
+                    return Ok(Some(l.clone()));
+                }
+            }
+            Err(LocalStorageError::LangNotSupported(lang.clone()))
+        } else {
+            Ok(None)
         }
     }
 }

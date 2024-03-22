@@ -22,7 +22,7 @@ pub enum StorageData {
     BaseTemplate(HashMap<String, String>),
     StaticFileData(Vec<u8>),
     Error(StorageErrorType),
-    PlainContent { lang: Option<String>, data: String },
+    Context { lang: Option<String>, data: toml::Value },
 }
 
 impl StorageData {
