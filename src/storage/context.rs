@@ -28,15 +28,7 @@ impl ContextQuery {
                 ContextQuery::RecentPages(_, _) => ctxt.insert(name, &data.recent_pages()?),
                 ContextQuery::SimilarPagesFromMetadata(_, _, _) => ctxt.insert(name, &data.similar_pages()?),
                 ContextQuery::SimilarPagesFromUri(_, _, _, _) => ctxt.insert(name, &data.similar_pages()?),
-                ContextQuery::QueryMetadata(_, _) => {
-                    log::debug!("{}", std::mem::size_of::<ContextQuery>());
-                    let res = data.query_metadata();
-                    log::debug!("TOTO");
-                    if res.is_err() {
-                        log::error!("Query metadata error: {res:?}");
-                    }
-                    ctxt.insert(name, &res?)
-                },
+                ContextQuery::QueryMetadata(_, _) => ctxt.insert(name, &data.query_metadata()?),
                 ContextQuery::QueryFilterMetadata(_, _, _) => ctxt.insert(name, &data.query_metadata()?),
                 _ => {},
             }

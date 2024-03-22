@@ -11,7 +11,8 @@ use crate::storage::{ContextQuery, StorageSlug};
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct PageMetadata {
-    #[serde(default, deserialize_with="deserialize_id")]
+    // FIXME    u64 deserialization with toml
+    #[serde(default)]
     pub id: u64,
 
     #[serde(default)]

@@ -49,6 +49,10 @@ impl ContentQueryMethod {
 }
 
 pub fn configure(cfg: &Config, app: &mut ServiceConfig) {
+    for (from, to) in cfg.redirections.iter() {
+        app.service(web::redirect(from.clone(), to.clone()));
+    }
+
     for (_, ptype) in cfg.page_type.iter() {
         app.route(
             ptype.route.as_str(),

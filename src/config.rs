@@ -38,6 +38,9 @@ pub struct Config {
     #[serde(default)]
     pub upload_endpoints: HashMap<String, UploadEndpoint>,
 
+    #[serde(default)]
+    pub redirections: HashMap<String, String>,
+
     #[cfg(feature = "storage-local")]
     pub local_storage: crate::storage::backend::local::LocalStorage,
 }

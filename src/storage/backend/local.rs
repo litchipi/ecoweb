@@ -384,7 +384,6 @@ impl StorageBackend for LocalStorage {
             Ok(data) => data,
             Err(e) => {
                 log::error!("{e:?}");
-                log::debug!("{}", std::mem::size_of::<StorageData>());
                 StorageData::Error(e)
             },
         }
