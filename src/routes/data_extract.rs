@@ -54,7 +54,7 @@ impl RequestArgs {
     }
 }
 
-// TODO    Get lang from request
+// TODO   IMPORTANT     Get lang from request
 fn get_lang(req: &HttpRequest) -> Option<Vec<String>> {
     // Get langs from headers or GET params
     None

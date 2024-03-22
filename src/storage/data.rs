@@ -16,6 +16,7 @@ pub enum StorageData {
     PageContent {
         metadata: PageMetadata,
         body: String,
+        lang: Option<String>,
     },
     Template(String),
     BaseTemplate(HashMap<String, String>),
@@ -43,9 +44,9 @@ impl StorageData {
     }
 
     #[inline]
-    pub fn page_content(self) -> Result<(PageMetadata, String), Errcode> {
+    pub fn page_content(self) -> Result<(Option<String>, PageMetadata, String), Errcode> {
         match self {
-            StorageData::PageContent { metadata, body } => Ok((metadata, body)),
+            StorageData::PageContent { metadata, body, lang } => Ok((lang, metadata, body)),
             StorageData::Error(e) => Err(Errcode::StorageError(e)),
             _ => Err(Errcode::WrongStorageData("PageContent")),
         }

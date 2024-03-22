@@ -82,14 +82,17 @@ impl PageHandler {
         default_template: String,
     ) -> Result<String, Errcode> {
         let mut ctxt = args.base_context.as_ref().clone();
-        let (metadata, body) = if let StorageQueryMethod::NoOp = qry.method {
-            (PageMetadata::default(), "".to_string())
+        let (lang_opt, metadata, body) = if let StorageQueryMethod::NoOp = qry.method {
+            (None, PageMetadata::default(), "".to_string())
         } else {
-            args.storage.query(qry.clone()).await.page_content()?            
+            args.storage.query(qry.clone()).await.page_content()?
         };
 
         ctxt.insert("id", &metadata.id);
         ctxt.insert("metadata", &metadata.metadata);
+        if let Some(ref lang) = lang_opt {
+            ctxt.insert("lang", lang);
+        }
 
         // TODO    Use Tera functions to query storage for more context
         //    Register a function that creates a storage query to get context.

@@ -220,6 +220,8 @@ impl LocalStorage {
         } else {
             (&self.default_sort.0, self.default_sort.1)
         };
+        // TODO    IMPORTANT        Get content based on lang if defined
+        let lang = None;
 
         match qry.method {
             StorageQueryMethod::NoOp => {
@@ -230,7 +232,7 @@ impl LocalStorage {
             StorageQueryMethod::ContentNoId => {
                 let path = self.get_content_path(&qry, vec![])?;
                 let (metadata, body) = self.load_content(&path)?;
-                Ok(StorageData::PageContent { metadata, body })
+                Ok(StorageData::PageContent { metadata, body, lang })
             }
 
             StorageQueryMethod::ContentNumId(id) => {
@@ -249,13 +251,13 @@ impl LocalStorage {
                     return Err(LocalStorageError::TooManyMatches(other_matches, 1));
                 }
                 let (metadata, body) = self.load_content(fpath)?;
-                Ok(StorageData::PageContent { metadata, body })
+                Ok(StorageData::PageContent { metadata, body, lang })
             }
 
             StorageQueryMethod::ContentSlug(ref slug) => {
                 let path = self.get_content_path(&qry, vec![slug])?;
                 let (metadata, body) = self.load_content(&path)?;
-                Ok(StorageData::PageContent { metadata, body })
+                Ok(StorageData::PageContent { metadata, body, lang })
             }
 
             StorageQueryMethod::RecentPages => {
