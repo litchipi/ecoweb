@@ -86,12 +86,20 @@ impl PageHandler {
         let (lang_opt, metadata, body) = if let StorageQueryMethod::NoOp = qry.method {
             (None, PageMetadata::default(), "".to_string())
         } else {
-            args.storage.query(qry.clone()).await.page_content()?
+            let (l, md, b) = args.storage.query(qry.clone()).await.page_content()?;
+            ctxt.insert("id", &md.id);
+            ctxt.insert("metadata", &md.metadata);
+            (l, md, b)
         };
 
-        ctxt.insert("id", &metadata.id);
-        ctxt.insert("metadata", &metadata.metadata);
         ctxt.insert("route", &args.uri);
+
+        // Lang that the remote client prefers
+        if let Some(ref all_langs) = args.lang {
+            ctxt.insert("pref_langs", all_langs);
+        }
+
+        // Lang that the data from storage is written in
         if let Some(ref lang) = lang_opt {
             ctxt.insert("lang", lang);
         }

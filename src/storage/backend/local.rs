@@ -15,6 +15,8 @@ use crate::storage::{StorageData, StorageQuery};
 
 use super::StorageBackend;
 
+const SPLIT_PAT: &str = "---";
+
 fn canonicalize_to_root(path: &mut PathBuf, root: &PathBuf) -> Result<(), LocalStorageError> {
     *path = root
         .join(&path)
@@ -149,12 +151,18 @@ impl LocalStorage {
         let content = std::fs::read_to_string(path)
             .map_err(|e| LocalStorageError::LoadContent(format!("{e:?}")))?;
 
-        let mut split = content.split("---");
+        if !content.contains(SPLIT_PAT) {
+            return Err(LocalStorageError::LoadContent(
+                format!("Split {SPLIT_PAT} not found in {path:?}")
+            ));
+        }
+
+        let mut split = content.split(SPLIT_PAT);
         let metadata = split.next().unwrap();
 
         let body = split
             .collect::<Vec<&str>>()
-            .join("---")
+            .join(SPLIT_PAT)
             .to_string();
 
         let mut metadata: PageMetadata = toml::from_str(metadata)
@@ -235,8 +243,8 @@ impl LocalStorage {
                 Ok(StorageData::Nothing)
             }
 
-            StorageQueryMethod::ContentNoId => {
-                let path = self.get_content_path(&qry, None, lang.as_ref(), Some("md"))?;
+            StorageQueryMethod::ContentFromName(ref name) => {
+                let path = self.get_content_path(&qry, Some(name), lang.as_ref(), Some("md"))?;
                 let (metadata, body) = self.load_content(&path)?;
                 Ok(StorageData::PageContent { metadata, body, lang })
             }

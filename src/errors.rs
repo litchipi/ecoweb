@@ -20,6 +20,7 @@ pub enum Errcode {
     StorageError(StorageErrorType),
     WrongStorageData(&'static str),
     ContextQueryBuild(&'static str, String),
+    UnsupportedContextQuery(&'static str),
 
     // Render
     RegisterTemplate(String),

@@ -23,7 +23,7 @@ pub enum StorageQueryMethod {
     NoOp = 0,
 
     // Query page content
-    ContentNoId,
+    ContentFromName(String),
     ContentNumId(u64),
     ContentSlug(String),
 
@@ -102,18 +102,6 @@ impl StorageQuery {
         qry.list_opts(opts);
         qry
     }
-    pub fn content(storage: &String, id: Option<u64>, slug: Option<String>) -> StorageQuery {
-        let method = if let Some(id) = id {
-            StorageQueryMethod::ContentNumId(id)
-        } else {
-            if let Some(slug) = slug {
-                StorageQueryMethod::ContentSlug(slug)
-            } else {
-                StorageQueryMethod::ContentNoId
-            }
-        };
-        method.build_query(storage)
-    }
 
     pub fn update_key(&mut self) {
         let mut s = DefaultHasher::new();
@@ -121,7 +109,10 @@ impl StorageQuery {
         // s.write_u8(self.method as u8);    // TODO Make this work
         match self.method {
             StorageQueryMethod::NoOp => s.write_u8(0),
-            StorageQueryMethod::ContentNoId => s.write_u8(1),
+            StorageQueryMethod::ContentFromName(ref n) => {
+                s.write_u8(1);
+                s.write(n.as_bytes());
+            },
             StorageQueryMethod::ContentNumId(id) => {
                 s.write_u8(2);
                 s.write_u64(id);

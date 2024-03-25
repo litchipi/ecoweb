@@ -22,7 +22,8 @@ async fn main() -> std::io::Result<()> {
             .await
             .expect("Error while initializing render engine"),
     );
-    let base_context = Data::new(config.base_templating_context());
+    let base_context = config.base_templating_context(&storage).await.expect("Unable to generate base context");
+    let base_context = Data::new(base_context);
 
     let port = config.server_port;
 

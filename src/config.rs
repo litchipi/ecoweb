@@ -11,6 +11,7 @@ use tera::Context;
 use crate::errors::Errcode;
 use crate::page::PageType;
 use crate::routes::UploadEndpoint;
+use crate::storage::{ContextQuery, Storage};
 
 #[derive(Parser)]
 struct Arguments {
@@ -28,7 +29,10 @@ pub struct Config {
     pub static_files_route: String,
 
     #[serde(default)]
-    pub add_context: HashMap<String, serde_json::Value>,
+    pub plain_context: HashMap<String, serde_json::Value>,
+
+    #[serde(default)]
+    pub add_context: HashMap<String, ContextQuery>,
 
     page_config: PathBuf,
 
@@ -90,11 +94,20 @@ impl Config {
         // .add((header::AGE, "0")),
     }
 
-    pub fn base_templating_context(&self) -> Context {
+    pub async fn base_templating_context(&self, storage: &Storage) -> Result<Context, Errcode> {
         let mut ctxt = Context::new();
-        for (slug, data) in self.add_context.iter() {
+        for (slug, data) in self.plain_context.iter() {
             ctxt.insert(slug, data);
         }
-        ctxt
+
+        for (slug, qry) in self.add_context.iter() {
+            if let ContextQuery::Plain(d) = qry {
+                ctxt.insert(slug, d);
+            }
+            let sq = qry.independant_query()?.unwrap();
+            let val = storage.query(sq).await;
+            qry.insert_data(slug, &mut ctxt, val)?;
+        }
+        Ok(ctxt)
     }
 }

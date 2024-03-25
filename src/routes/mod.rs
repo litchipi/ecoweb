@@ -27,7 +27,7 @@ pub enum ContentQueryMethod {
     // Get content ID from URL, with storage passed in parameter, has to be a number
     ContentId(String),
 
-    FromSlug,
+    FromName(String),
 }
 
 impl ContentQueryMethod {
@@ -42,7 +42,9 @@ impl ContentQueryMethod {
                 let id = args.get_query_id(slug)?;
                 StorageQueryMethod::ContentNumId(id)
             },
-            ContentQueryMethod::FromSlug => StorageQueryMethod::ContentNoId,
+            ContentQueryMethod::FromName(name) => {
+                StorageQueryMethod::ContentFromName(name.clone())
+            },
         };
         Ok(method.build_query(storage))
     }

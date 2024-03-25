@@ -43,13 +43,20 @@ impl ContextQuery {
             Ok(())
     }
 
+    pub fn independant_query(&self) -> Result<Option<StorageQuery>, Errcode> {
+        match self {
+            ContextQuery::Plain(d) => Ok(None),
+            ContextQuery::RecentPages(ref slug, opts) => Ok(Some(StorageQuery::recent_pages(slug, opts))),
+            ContextQuery::QueryMetadata(slug, query) => Ok(Some(StorageQuery::query_metadata(slug, (vec![], None), query.clone()))),
+            ContextQuery::QueryFilterMetadata(slug, filter, query) => Ok(Some(StorageQuery::query_metadata(slug, filter.clone(), query.clone()))),
+            ContextQuery::QueryContext(slug, name) => Ok(Some(StorageQuery::query_context(slug, name.clone()))),
+            _ => Err(Errcode::UnsupportedContextQuery("query is not independant from context")),
+        }
+    }
+
     #[inline]
     pub fn get_storage_query(&self, args: &RequestArgs, page_md: &PageMetadata) -> Result<Option<StorageQuery>, Errcode> {
         match self {
-            ContextQuery::Plain(d) => Ok(None),
-            ContextQuery::RecentPages(ref slug, opts) => {
-                Ok(Some(StorageQuery::recent_pages(slug, opts)))
-            }
             ContextQuery::SimilarPagesFromMetadata(ref slug, ref keys, opts) => {
                 if keys.is_empty() {
                     return Err(
@@ -82,15 +89,7 @@ impl ContextQuery {
                 );
                 Ok(Some(qry))
             }
-            ContextQuery::QueryMetadata(slug, query) => {
-                Ok(Some(StorageQuery::query_metadata(slug, (vec![], None), query.clone())))
-            }
-            ContextQuery::QueryFilterMetadata(slug, filter, query) => {
-                Ok(Some(StorageQuery::query_metadata(slug, filter.clone(), query.clone())))
-            }
-            ContextQuery::QueryContext(slug, name) => {
-                Ok(Some(StorageQuery::query_context(slug, name.clone())))
-            },
+            _ => self.independant_query(),
         }
     }
 }
