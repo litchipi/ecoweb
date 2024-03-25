@@ -56,19 +56,41 @@ impl RequestArgs {
 }
 
 fn get_lang(req: &HttpRequest) -> Option<Vec<String>> {
-    req.headers().get(header::ACCEPT_LANGUAGE).map(|langs| {
-        let mut res = langs.to_str().unwrap()
-            .split(",")
-            .map(|l| l
-                .split(";").nth(0).unwrap()
-                .split("-").nth(0).unwrap()
-                .to_lowercase()
-            )
-            .collect::<Vec<String>>();
-        res.sort();
-        res.dedup();
-        res
-    })
+    let mut res_langs = vec![];
+    if let Some(ref qry) = req.uri().query() {
+        for q in qry.split("&") {
+            let q = q.to_string();
+            let mut it = q.split("=");
+            let Some(key) = it.next() else {
+                continue;
+            };
+            if key == "lang" {
+                let Some(val) = it.next() else {
+                    continue;
+                };
+                res_langs.push(val.to_string());
+            }
+        }
+    }
+
+    if let Some(langs) = req.headers().get(header::ACCEPT_LANGUAGE) {
+        res_langs.extend(
+            langs
+                .to_str().unwrap()
+                .split(",")
+                .map(|l| l
+                    .split(";").nth(0).unwrap()
+                    .split("-").nth(0).unwrap()
+                    .to_lowercase()
+                )
+        );
+    }
+    res_langs.dedup();
+    if res_langs.is_empty() {
+        None
+    } else {
+        Some(res_langs)
+    }
 }
 
 fn get_from_req<T: 'static>(req: &HttpRequest) -> Data<T> {

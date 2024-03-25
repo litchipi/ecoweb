@@ -25,8 +25,6 @@ fn canonicalize_to_root(path: &mut PathBuf, root: &PathBuf) -> Result<(), LocalS
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum LocalStorageError {
-    LangNotSupported(Vec<String>),
-
     LoadContent(String),
     LoadStaticFile(String),
     LoadContext(String),
@@ -391,7 +389,7 @@ impl LocalStorage {
                     return Ok(Some(l.clone()));
                 }
             }
-            Err(LocalStorageError::LangNotSupported(lang.clone()))
+            Ok(None)
         } else {
             Ok(None)
         }
