@@ -32,7 +32,7 @@ pub enum LocalStorageError {
     LoadContext(String),
 
     DataNotFound(PathBuf),
-    TemplateNotFound(PathBuf),
+    TemplateLoading(String),
 
     NoMatch(String),
     TooManyMatches(usize, usize),
@@ -189,16 +189,6 @@ impl LocalStorage {
         Ok((metadata, body))
     }
 
-    pub fn load_template(&self, name: &String) -> Result<String, LocalStorageError> {
-        let path = self.template_root.join(name);
-        if !path.exists() {
-            return Err(LocalStorageError::TemplateNotFound(path));
-        }
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| LocalStorageError::LoadContent(format!("{e:?}")))?;
-        Ok(content)
-    }
-
     fn all_pages_in_dir(&self, dirpath: &Path) -> Result<Vec<(PathBuf, PageMetadata)>, LocalStorageError> {
         let all_paths = std::fs::read_dir(dirpath)
             .map_err(|e| LocalStorageError::ListFiles(format!("{e:?}")))?;
@@ -312,18 +302,11 @@ impl LocalStorage {
                 Ok(StorageData::RecentPages(results))
             }
 
-            StorageQueryMethod::PageTemplate(name) => {
-                let data = self.load_template(&name)?;
-                Ok(StorageData::Template(data))
-            }
+            StorageQueryMethod::QueryTemplates => {
+                let mut all_templates = HashMap::new();
 
-            StorageQueryMethod::BaseTemplates => {
-                let mut base_templates = HashMap::new();
-                for template in self.base_templates.iter() {
-                    let data = self.load_template(template)?;
-                    base_templates.insert(template.clone(), data);
-                }
-                Ok(StorageData::BaseTemplate(base_templates))
+                load_all_templates_from_dir(&self.template_root, vec![], &mut all_templates)?;
+                Ok(StorageData::BaseTemplate(all_templates))
             }
 
             StorageQueryMethod::StaticFile(f) => {
@@ -477,4 +460,46 @@ fn compare_similar_md(a: &serde_json::Value, b: &serde_json::Value) -> bool {
         return b.as_array().unwrap().contains(a);
     }
     a == b
+}
+
+fn load_all_templates_from_dir(fpath: &PathBuf, parents: Vec<String>, hmap: &mut HashMap<String, String>) -> Result<(), LocalStorageError> {
+    let entries = std::fs::read_dir(fpath)
+        .map_err(|e|
+            LocalStorageError::TemplateLoading(
+                format!("Cannot list files in dir {fpath:?}: {e:?}")
+            )
+        )?;
+
+    for path in entries {
+        let path = path.map_err(|e|
+            LocalStorageError::TemplateLoading(format!("Get path entry: {e:?}"))
+        )?;
+        let path = path.path();
+        if path.is_dir() {
+            let Some(dname) = path.components().last().unwrap().as_os_str().to_str() else {
+                log::warn!("Cannot load dir {path:?}: illegal dirname");
+                continue;
+            };
+            let mut new_parents = parents.clone();
+            new_parents.push(dname.to_string());
+            load_all_templates_from_dir(&path, new_parents, hmap)?;
+        } else {
+            let Some(template_name) = path.file_name().unwrap().to_str() else {
+                log::warn!("Cannot load file {path:?}: illegal filename");
+                continue;
+            };
+            let mut template_path = parents.clone();
+            template_path.push(template_name.to_string());
+            let template_name = template_path.join("/");
+            let content = std::fs::read_to_string(&path)
+                .map_err(|e| 
+                    LocalStorageError::TemplateLoading(
+                        format!("Loading template {path:?} error: {e:?}")
+                    )
+                )?;
+            hmap.insert(template_name.to_string(), content);
+        }
+    }
+
+    Ok(())
 }

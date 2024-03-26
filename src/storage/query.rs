@@ -32,8 +32,7 @@ pub enum StorageQueryMethod {
     GetSimilarPages(MetadataFilter),
 
     // Query template
-    PageTemplate(String),
-    BaseTemplates,
+    QueryTemplates,
 
     // Query data
     StaticFile(String),
@@ -91,11 +90,8 @@ impl StorageQuery {
     pub fn static_file(fname: String) -> StorageQuery {
         StorageQueryMethod::StaticFile(fname).build_query("static")
     }
-    pub fn base_templates() -> StorageQuery {
-        StorageQueryMethod::BaseTemplates.build_query("templates")
-    }
-    pub fn template(slug: String) -> StorageQuery {
-        StorageQueryMethod::PageTemplate(slug).build_query("templates")
+    pub fn templates() -> StorageQuery {
+        StorageQueryMethod::QueryTemplates.build_query("templates")
     }
     pub fn recent_pages(slug: &String, opts: &QueryListOptions) -> StorageQuery {
         let mut qry = StorageQueryMethod::RecentPages.build_query(slug);
@@ -118,11 +114,8 @@ impl StorageQuery {
                 s.write_u64(id);
             }
             StorageQueryMethod::RecentPages => s.write_u8(3),
-            StorageQueryMethod::PageTemplate(ref n) => {
-                s.write_u8(4);
-                s.write(n.as_bytes());
-            }
-            StorageQueryMethod::BaseTemplates => s.write_u8(5),
+            StorageQueryMethod::QueryTemplates => s.write_u8(4),
+            // 5 not taken
             StorageQueryMethod::StaticFile(ref n) => {
                 s.write_u8(6);
                 s.write(n.as_bytes());
