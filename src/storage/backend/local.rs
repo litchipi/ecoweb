@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
 use crate::page::PageMetadata;
-use crate::scss::{setup_css, ScssError};
+use crate::scss::{compile_scss, ScssError};
 use crate::storage::query::StorageQueryMethod;
 use crate::storage::{StorageData, StorageQuery};
 
@@ -62,6 +62,12 @@ impl Into<HttpResponseBuilder> for LocalStorageError {
     }
 }
 
+impl From<ScssError> for LocalStorageError {
+    fn from(value: ScssError) -> Self {
+        LocalStorageError::ScssProcess(value)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalStorage {
     #[serde(skip)]
@@ -80,7 +86,6 @@ pub struct LocalStorage {
     include_assets: Vec<PathBuf>,
 
     // CSS
-    css_output_dir: PathBuf,
     scss: HashMap<String, Vec<PathBuf>>,
     scss_root: PathBuf,
 }
@@ -89,10 +94,7 @@ impl LocalStorage {
     pub fn canonicalize_paths(&mut self, config: &Config) -> Result<(), LocalStorageError> {
         canonicalize_to_root(&mut self.data_root, &config.root)?;
         canonicalize_to_root(&mut self.template_root, &config.root)?;
-        std::fs::create_dir_all(config.root.join(&self.css_output_dir))
-            .map_err(|e| LocalStorageError::CreateDir(format!("css: {e:?}")))?;
-        canonicalize_to_root(&mut self.css_output_dir, &config.root)?;
-        self.include_assets.push(self.css_output_dir.clone());
+        canonicalize_to_root(&mut self.scss_root, &config.root)?;
         for inc in self.include_assets.iter_mut() {
             *inc = config
                 .root
@@ -101,6 +103,24 @@ impl LocalStorage {
                 .map_err(|e| LocalStorageError::InitPaths(format!("{inc:?}: {e:?}")))?;
         }
         Ok(())
+    }
+
+    pub fn load_css(&self, css: &str) -> Result<StorageData, LocalStorageError> {
+        let mut css_content = String::new();
+
+        for scss_file in self.scss.get(css).unwrap() {
+            css_content += format!("// {scss_file:?}").as_str();
+            css_content += compile_scss(self.scss_root.join(scss_file))?.as_str();
+            css_content += "\n";
+        }
+
+        #[cfg(feature = "css_minify")]
+        {
+        css_content = minifier::css::minify(&css_content)
+            .map_err(|e| ScssError::MinificationError(e.to_string()))?
+            .to_string();
+        }
+        Ok(StorageData::StaticFileData(css_content.as_bytes().to_vec()))
     }
 
     pub fn load_static_file(&self, path: PathBuf) -> Result<StorageData, LocalStorageError> {
@@ -112,11 +132,6 @@ impl LocalStorage {
             #[cfg(feature = "js_minify")]
             if ext == "js" {
                 data = minify_js(data);
-            }
-
-            #[cfg(feature = "css_minify")]
-            if ext == "css" {
-                data = minify_css(data);
             }
         }
 
@@ -329,8 +344,21 @@ impl LocalStorage {
                         ));
                     }
 
-                    if try_path.exists() {
+                    let Some(fname) = try_path.file_name() else {
+                        return Err(LocalStorageError::BadRequest("no file name".to_string()));
+                    };
+                    let Some(fname) = fname.to_str() else {
+                        return Err(LocalStorageError::BadRequest("illegal characters in file name".to_string()));
+                    };
+
+                    if try_path.is_file() {
                         return self.load_static_file(try_path.into_owned());
+                    }
+
+                    if let Some(ext) = try_path.extension() {
+                        if ext == "css" {
+                            return self.load_css(fname);
+                        }
                     }
                 }
                 Err(LocalStorageError::DataNotFound(fpath))
@@ -413,9 +441,6 @@ impl StorageBackend for LocalStorage {
     {
         let mut storage = config.local_storage.clone();
         storage.canonicalize_paths(config)?;
-        setup_css(
-            config.root.join(&storage.scss_root), &storage.scss, &storage.css_output_dir)
-            .map_err(|e| LocalStorageError::ScssProcess(e))?;
         Ok(storage)
     }
 
@@ -434,11 +459,6 @@ impl StorageBackend for LocalStorage {
             },
         }
     }
-}
-
-// TODO    CSS minification
-pub fn minify_css(css: Vec<u8>) -> Vec<u8> {
-    css
 }
 
 // TODO    Use this function once minify-js is fixed

@@ -24,7 +24,7 @@ toml = "0.8.10"
 # Minification
 
 [features]
-default = [ "storage-local", "minify", "dev" ]
+default = [ "storage-local", "minify"] #"dev" ]
 dev = ["hot-reloading"]
 hot-reloading = []
 
