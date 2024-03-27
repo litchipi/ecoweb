@@ -1,5 +1,5 @@
 [package]
-name = "rework_ecoweb"
+name = "ecoweb"
 version = "0.1.0"
 edition = "2021"
 
