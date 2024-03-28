@@ -109,7 +109,7 @@ impl LocalStorage {
         let mut css_content = String::new();
 
         for scss_file in self.scss.get(css).unwrap() {
-            css_content += format!("// {scss_file:?}").as_str();
+            css_content += format!("\n/* {scss_file:?} */\n").as_str();
             css_content += compile_scss(self.scss_root.join(scss_file))?.as_str();
             css_content += "\n";
         }
