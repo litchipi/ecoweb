@@ -50,6 +50,7 @@ impl ContentQueryMethod {
     }
 }
 
+// TODO IMPORTANT    Create a contact form backend
 pub fn configure(cfg: &Config, app: &mut ServiceConfig) {
     for (from, to) in cfg.redirections.iter() {
         app.service(web::redirect(from.clone(), to.clone()));
