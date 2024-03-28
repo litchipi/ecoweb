@@ -11,6 +11,9 @@ mod routes;
 mod storage;
 mod scss;
 
+// TODO    IMPORTANT    For each unwrap of the codebase, add a comment on why it's safe
+//                      If not safe, handle the case where it could be None
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let config = config::Config::load().expect("Unable to load server configuration");

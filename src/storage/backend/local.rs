@@ -48,6 +48,7 @@ pub enum LocalStorageError {
     ListFiles(String),
     ListFilesPathUnwrap(String),
 
+    CssNotFound(String),
     ScssProcess(ScssError),
 
     AttackSuspected(String),
@@ -107,8 +108,11 @@ impl LocalStorage {
 
     pub fn load_css(&self, css: &str) -> Result<StorageData, LocalStorageError> {
         let mut css_content = String::new();
+        let Some(scss_files) = self.scss.get(css) else {
+            return Err(LocalStorageError::CssNotFound(css.to_string()));
+        };
 
-        for scss_file in self.scss.get(css).unwrap() {
+        for scss_file in scss_files {
             css_content += format!("\n/* {scss_file:?} */\n").as_str();
             css_content += compile_scss(self.scss_root.join(scss_file))?.as_str();
             css_content += "\n";
