@@ -11,6 +11,7 @@ pub enum Errcode {
 
     // Configuration
     ConfigFileRead(Arc<std::io::Error>),
+    MissingFormConfig(String, String),
 
     // Data extraction
     ContentIdParsing(std::num::ParseIntError),
@@ -28,6 +29,10 @@ pub enum Errcode {
 
     // Serialization
     TomlDecode(&'static str, toml::de::Error),
+    BinaryEncode(bincode::Error),
+
+    // External services
+    Mail(crate::mail::MailErrcode),
 }
 
 impl Into<HttpResponseBuilder> for Errcode {
@@ -63,3 +68,15 @@ impl From<mdtrans::Errcode> for Errcode {
 //         }
 //     }
 // }
+
+impl From<bincode::Error> for Errcode {
+    fn from(value: bincode::Error) -> Self {
+        Errcode::BinaryEncode(value)
+    }
+}
+
+impl From<crate::mail::MailErrcode> for Errcode {
+    fn from(value: crate::mail::MailErrcode) -> Self {
+        Errcode::Mail(value)
+    }
+}

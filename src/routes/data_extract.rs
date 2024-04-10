@@ -55,7 +55,7 @@ impl RequestArgs {
     }
 }
 
-fn get_lang(req: &HttpRequest) -> Option<Vec<String>> {
+pub fn get_lang(req: &HttpRequest) -> Option<Vec<String>> {
     let mut res_langs = vec![];
     if let Some(ref qry) = req.uri().query() {
         for q in qry.split("&") {

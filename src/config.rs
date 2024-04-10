@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use tera::Context;
 
 use crate::errors::Errcode;
+use crate::form::FormAction;
+use crate::mail::MailConfig;
 use crate::page::PageType;
 use crate::routes::UploadEndpoint;
 use crate::storage::{ContextQuery, Storage};
@@ -36,8 +38,13 @@ pub struct Config {
 
     page_config: PathBuf,
 
+    pub mail: MailConfig,
+
     #[serde(default)]
     pub page_type: HashMap<String, PageType>,
+
+    #[serde(default)]
+    pub form_endpoints: HashMap<String, FormAction>,
 
     #[serde(default)]
     pub upload_endpoints: HashMap<String, UploadEndpoint>,

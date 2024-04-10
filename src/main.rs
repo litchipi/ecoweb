@@ -1,4 +1,6 @@
-#![allow(dead_code, unused_variables)] // TODO    Remove once dev finished
+#![allow(dead_code, unused_variables)]
+
+// TODO    Remove once dev finished
 use actix_web::middleware::{Compress, Logger};
 use actix_web::{web::Data, App, HttpServer};
 
@@ -10,13 +12,18 @@ mod render;
 mod routes;
 mod storage;
 mod scss;
+mod mail;
+mod form;
 
 // TODO    IMPORTANT    For each unwrap of the codebase, add a comment on why it's safe
 //                      If not safe, handle the case where it could be None
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let config = config::Config::load().expect("Unable to load server configuration");
+    let config = Data::new(
+        config::Config::load()
+            .expect("Unable to load server configuration")
+    );
     config.setup_logging();
 
     let storage = Data::new(storage::Storage::init(&config).expect("Unable to initialize storage"));
@@ -30,6 +37,8 @@ async fn main() -> std::io::Result<()> {
 
     let port = config.server_port;
 
+    // TODO    use actix_web::web::FormConfig to configure limitations on forms
+
     let srv = HttpServer::new(move || {
         let app = App::new()
             .wrap(Compress::default())
@@ -37,7 +46,8 @@ async fn main() -> std::io::Result<()> {
             .wrap(config.get_default_headers())
             .app_data(base_context.clone())
             .app_data(storage.clone())
-            .app_data(render.clone());
+            .app_data(render.clone())
+            .app_data(config.clone());
 
         app.configure(|app| {
             routes::configure(&config, app);

@@ -1,4 +1,4 @@
-mod data_extract;
+pub mod data_extract;
 mod request_handler;
 mod static_files;
 mod upload;
@@ -50,7 +50,6 @@ impl ContentQueryMethod {
     }
 }
 
-// TODO IMPORTANT    Create a contact form backend
 pub fn configure(cfg: &Config, app: &mut ServiceConfig) {
     for (from, to) in cfg.redirections.iter() {
         app.service(web::redirect(from.clone(), to.clone()));
@@ -62,7 +61,14 @@ pub fn configure(cfg: &Config, app: &mut ServiceConfig) {
             web::get().to(PageHandler::create(ptype)),
         );
     }
-    upload::setup_routes(cfg, app);
+    upload::setup_routes(&cfg, app);
+
+    for (_, form) in cfg.form_endpoints.iter() {
+        app.route(
+            &form.endpoint,
+            web::post().to(form.create_handler()),
+        );
+    }
 
     let static_endpoint = cfg.static_files_route
         .trim_end_matches("/")
