@@ -7,6 +7,7 @@ use super::{StorageData, StorageQuery};
 
 pub mod local;
 
+#[allow(async_fn_in_trait)]
 pub trait StorageBackend {
     type Error: Into<HttpResponseBuilder> + Clone + Serialize + DeserializeOwned + std::fmt::Debug;
     fn init(config: &Config) -> Result<Self, Self::Error>

@@ -47,7 +47,11 @@ impl StorageData {
     #[inline]
     pub fn page_content(self) -> Result<(Option<String>, PageMetadata, String), Errcode> {
         match self {
-            StorageData::PageContent { metadata, body, lang } => Ok((lang, metadata, body)),
+            StorageData::PageContent {
+                metadata,
+                body,
+                lang,
+            } => Ok((lang, metadata, body)),
             StorageData::Error(e) => Err(Errcode::StorageError(e)),
             _ => Err(Errcode::WrongStorageData("PageContent")),
         }
@@ -90,11 +94,11 @@ impl StorageData {
     }
 
     #[inline]
-    pub  fn context(self) -> Result<toml::Value, Errcode> {
+    pub fn context(self) -> Result<toml::Value, Errcode> {
         match self {
             StorageData::Context(data) => Ok(data),
             StorageData::Error(e) => Err(Errcode::StorageError(e)),
-            _ => Err(Errcode::WrongStorageData("Context"))
+            _ => Err(Errcode::WrongStorageData("Context")),
         }
     }
 }

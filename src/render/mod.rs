@@ -44,7 +44,7 @@ impl Render {
 
     pub async fn render_content(
         &self,
-        template: &String,
+        template: &str,
         body: String,
         mut ctxt: Context,
     ) -> Result<String, Errcode> {
@@ -58,19 +58,19 @@ impl Render {
 
         #[cfg(feature = "html_minify")]
         let result = minify_html(result);
-        
+
         Ok(result)
     }
 
     pub async fn render_error(&self, err: &Errcode, ctxt: Context) -> String {
-        match self.render_notification(
-            "Error".to_string(),
-            format!("{err:?}"),
-            ctxt
-        ).await {
+        match self
+            .render_notification("Error".to_string(), format!("{err:?}"), ctxt)
+            .await
+        {
             Ok(body) => body,
             Err(e) => {
-                format!("
+                format!(
+                    "
                     <html>
                         <body>
                             <h1>Error while displaying the error page</h1>
@@ -85,7 +85,12 @@ impl Render {
         }
     }
 
-    pub async fn render_notification(&self, title: String, msg: String, mut ctxt: Context) -> Result<String, Errcode> {
+    pub async fn render_notification(
+        &self,
+        title: String,
+        msg: String,
+        mut ctxt: Context,
+    ) -> Result<String, Errcode> {
         #[cfg(feature = "hot-reloading")]
         {
             *self.engine.write() = Self::init_engine(&self.storage).await?;
@@ -94,22 +99,21 @@ impl Render {
         ctxt.insert("notif_title", &title);
         ctxt.insert("notif_content", &msg);
 
-        let result = self.engine.read().render(
-            &self.notification_template,
-            &ctxt
-        )?;
+        let result = self
+            .engine
+            .read()
+            .render(&self.notification_template, &ctxt)?;
 
         #[cfg(feature = "html_minify")]
         let result = minify_html(result);
-        
+
         Ok(result)
-        
     }
 }
 
 pub fn timestamp_to_date(
     val: &tera::Value,
-    _: &HashMap<String, tera::Value>
+    _: &HashMap<String, tera::Value>,
 ) -> Result<tera::Value, tera::Error> {
     let s = try_get_value!("timestamp_to_date", "value", i64, val);
     let date = chrono::DateTime::from_timestamp(s, 0).unwrap();

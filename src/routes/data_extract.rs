@@ -36,7 +36,7 @@ impl FromRequest for RequestArgs {
 }
 
 impl RequestArgs {
-    pub fn get_query_slug(&self, slug: &String) -> Result<String, Errcode> {
+    pub fn get_query_slug(&self, slug: &str) -> Result<String, Errcode> {
         if let Some(slug) = self.match_infos.get(slug) {
             Ok(slug.to_string())
         } else {
@@ -44,11 +44,9 @@ impl RequestArgs {
         }
     }
 
-    pub fn get_query_id(&self, slug: &String) -> Result<u64, Errcode> {
+    pub fn get_query_id(&self, slug: &str) -> Result<u64, Errcode> {
         if let Some(id) = self.match_infos.get(slug) {
-            Ok(id
-                .parse::<u64>()
-                .map_err(|e| Errcode::ContentIdParsing(e))?)
+            Ok(id.parse::<u64>().map_err(Errcode::ContentIdParsing)?)
         } else {
             Err(Errcode::ParameterNotInUrl)
         }
@@ -57,10 +55,10 @@ impl RequestArgs {
 
 pub fn get_lang(req: &HttpRequest) -> Option<Vec<String>> {
     let mut res_langs = vec![];
-    if let Some(ref qry) = req.uri().query() {
-        for q in qry.split("&") {
+    if let Some(qry) = req.uri().query() {
+        for q in qry.split('&') {
             let q = q.to_string();
-            let mut it = q.split("=");
+            let mut it = q.split('=');
             let Some(key) = it.next() else {
                 continue;
             };
@@ -74,16 +72,15 @@ pub fn get_lang(req: &HttpRequest) -> Option<Vec<String>> {
     }
 
     if let Some(langs) = req.headers().get(header::ACCEPT_LANGUAGE) {
-        res_langs.extend(
-            langs
-                .to_str().unwrap()
-                .split(",")
-                .map(|l| l
-                    .split(";").nth(0).unwrap()
-                    .split("-").nth(0).unwrap()
-                    .to_lowercase()
-                )
-        );
+        res_langs.extend(langs.to_str().unwrap().split(',').map(|l| {
+            l.split(';')
+                .next()
+                .unwrap()
+                .split('-')
+                .next()
+                .unwrap()
+                .to_lowercase()
+        }));
     }
     res_langs.dedup();
     if res_langs.is_empty() {
@@ -97,7 +94,7 @@ fn get_from_req<T: 'static>(req: &HttpRequest) -> Data<T> {
     let what = std::any::type_name::<T>();
     let data = req
         .app_data::<Data<T>>()
-        .expect(format!("Unable to get {what} from app_data").as_str());
+        .unwrap_or_else(|| panic!("Unable to get {what} from app_data"));
     data.clone()
 }
 

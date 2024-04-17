@@ -79,10 +79,18 @@ impl StorageQuery {
         StorageQueryMethod::QueryContext(name).build_query(slug)
     }
 
-    pub fn query_metadata(slug: &String, filter: MetadataFilter, qry: MetadataQuery) -> StorageQuery {
+    pub fn query_metadata(
+        slug: &String,
+        filter: MetadataFilter,
+        qry: MetadataQuery,
+    ) -> StorageQuery {
         StorageQueryMethod::QueryMetadata(filter, qry).build_query(slug)
     }
-    pub fn similar_pages(slug: &String, keys: MetadataFilter, opts: &QueryListOptions) -> StorageQuery {
+    pub fn similar_pages(
+        slug: &String,
+        keys: MetadataFilter,
+        opts: &QueryListOptions,
+    ) -> StorageQuery {
         let mut qry = StorageQueryMethod::GetSimilarPages(keys).build_query(slug);
         qry.list_opts(opts);
         qry
@@ -108,7 +116,7 @@ impl StorageQuery {
             StorageQueryMethod::ContentFromName(ref n) => {
                 s.write_u8(1);
                 s.write(n.as_bytes());
-            },
+            }
             StorageQueryMethod::ContentNumId(id) => {
                 s.write_u8(2);
                 s.write_u64(id);
@@ -149,7 +157,7 @@ impl StorageQuery {
             StorageQueryMethod::QueryContext(ref name) => {
                 s.write_u8(10);
                 s.write(name.as_bytes());
-            },
+            }
         }
         s.write_usize(self.limit);
         self.key = s.finish();

@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use actix_web::{HttpResponse, HttpResponseBuilder, web::Data};
+use actix_web::{web::Data, HttpResponse, HttpResponseBuilder};
 use tera::Context;
 
-use crate::{storage::StorageErrorType, render::Render};
+use crate::{render::Render, storage::StorageErrorType};
 
 #[derive(Debug)]
 pub enum Errcode {
@@ -37,21 +37,25 @@ pub enum Errcode {
 }
 
 impl Errcode {
-    pub async fn build_http_response_from_data(self, render: Data<Render>, ctxt: Context) -> HttpResponse {
+    pub async fn build_http_response_from_data(
+        self,
+        render: Data<Render>,
+        ctxt: Context,
+    ) -> HttpResponse {
         self.build_http_response(render.get_ref(), ctxt).await
     }
 
     pub async fn build_http_response(self, render: &Render, ctxt: Context) -> HttpResponse {
         log::error!("{self:?}");
         let errpage = render.render_error(&self, ctxt).await;
-        let mut b : HttpResponseBuilder = self.into();
+        let mut b: HttpResponseBuilder = self.into();
         b.body(errpage)
     }
 }
 
-impl Into<HttpResponseBuilder> for Errcode {
-    fn into(self) -> HttpResponseBuilder {
-        match self {
+impl From<Errcode> for HttpResponseBuilder {
+    fn from(val: Errcode) -> Self {
+        match val {
             Errcode::ParameterNotInUrl => HttpResponse::NotFound(),
             Errcode::StorageError(e) => e.into(),
             _ => HttpResponse::InternalServerError(),

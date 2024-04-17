@@ -7,23 +7,20 @@ use actix_web::{web::Data, App, HttpServer};
 mod cache;
 mod config;
 mod errors;
+mod form;
+mod mail;
 mod page;
 mod render;
 mod routes;
-mod storage;
 mod scss;
-mod mail;
-mod form;
+mod storage;
 
 // TODO    IMPORTANT    For each unwrap of the codebase, add a comment on why it's safe
 //                      If not safe, handle the case where it could be None
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let config = Data::new(
-        config::Config::load()
-            .expect("Unable to load server configuration")
-    );
+    let config = Data::new(config::Config::load().expect("Unable to load server configuration"));
     config.setup_logging();
 
     let storage = Data::new(storage::Storage::init(&config).expect("Unable to initialize storage"));
@@ -32,7 +29,10 @@ async fn main() -> std::io::Result<()> {
             .await
             .expect("Error while initializing render engine"),
     );
-    let base_context = config.base_templating_context(&storage).await.expect("Unable to generate base context");
+    let base_context = config
+        .base_templating_context(&storage)
+        .await
+        .expect("Unable to generate base context");
     let base_context = Data::new(base_context);
 
     let port = config.server_port;

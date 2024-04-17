@@ -17,7 +17,7 @@ use super::StorageBackend;
 
 const SPLIT_PAT: &str = "---";
 
-fn canonicalize_to_root(path: &mut PathBuf, root: &PathBuf) -> Result<(), LocalStorageError> {
+fn canonicalize_to_root(path: &mut PathBuf, root: &Path) -> Result<(), LocalStorageError> {
     *path = root
         .join(&path)
         .canonicalize()
@@ -54,9 +54,9 @@ pub enum LocalStorageError {
     AttackSuspected(String),
 }
 
-impl Into<HttpResponseBuilder> for LocalStorageError {
-    fn into(self) -> HttpResponseBuilder {
-        match self {
+impl From<LocalStorageError> for HttpResponseBuilder {
+    fn from(val: LocalStorageError) -> Self {
+        match val {
             LocalStorageError::DataNotFound(_) => HttpResponse::NotFound(),
             _ => HttpResponse::InternalServerError(),
         }
@@ -69,10 +69,13 @@ impl From<ScssError> for LocalStorageError {
     }
 }
 
+//                        Storage    Filepath   Metadata
+type PageCache = HashMap<String, Vec<(PathBuf, PageMetadata)>>;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalStorage {
     #[serde(skip)]
-    all_pages: Arc<RwLock<HashMap<String, Vec<(PathBuf, PageMetadata)>>>>,
+    all_pages: Arc<RwLock<PageCache>>,
 
     // Data
     data_root: PathBuf,
@@ -120,17 +123,17 @@ impl LocalStorage {
 
         #[cfg(feature = "css_minify")]
         {
-        css_content = minifier::css::minify(&css_content)
-            .map_err(|e| ScssError::MinificationError(e.to_string()))?
-            .to_string();
+            css_content = minifier::css::minify(&css_content)
+                .map_err(|e| ScssError::MinificationError(e.to_string()))?
+                .to_string();
         }
         Ok(StorageData::StaticFileData(css_content.as_bytes().to_vec()))
     }
 
     pub fn load_static_file(&self, path: PathBuf) -> Result<StorageData, LocalStorageError> {
         #[allow(unused_mut)]
-        let mut data = std::fs::read(&path)
-            .map_err(|e| LocalStorageError::LoadStaticFile(e.to_string()))?;
+        let mut data =
+            std::fs::read(&path).map_err(|e| LocalStorageError::LoadStaticFile(e.to_string()))?;
 
         if let Some(ext) = path.extension() {
             #[cfg(feature = "js_minify")]
@@ -171,18 +174,15 @@ impl LocalStorage {
             .map_err(|e| LocalStorageError::LoadContent(format!("{e:?}")))?;
 
         if !content.contains(SPLIT_PAT) {
-            return Err(LocalStorageError::LoadContent(
-                format!("Split {SPLIT_PAT} not found in {path:?}")
-            ));
+            return Err(LocalStorageError::LoadContent(format!(
+                "Split {SPLIT_PAT} not found in {path:?}"
+            )));
         }
 
         let mut split = content.split(SPLIT_PAT);
         let metadata = split.next().unwrap();
 
-        let body = split
-            .collect::<Vec<&str>>()
-            .join(SPLIT_PAT)
-            .to_string();
+        let body = split.collect::<Vec<&str>>().join(SPLIT_PAT).to_string();
 
         let mut metadata: PageMetadata = toml::from_str(metadata)
             .map_err(|e| LocalStorageError::TomlDecode(format!("{e:?}")))?;
@@ -193,7 +193,10 @@ impl LocalStorage {
         Ok((metadata, body))
     }
 
-    fn all_pages_in_dir(&self, dirpath: &Path) -> Result<Vec<(PathBuf, PageMetadata)>, LocalStorageError> {
+    fn all_pages_in_dir(
+        &self,
+        dirpath: &Path,
+    ) -> Result<Vec<(PathBuf, PageMetadata)>, LocalStorageError> {
         let all_paths = std::fs::read_dir(dirpath)
             .map_err(|e| LocalStorageError::ListFiles(format!("{e:?}")))?;
 
@@ -206,7 +209,7 @@ impl LocalStorage {
                 let (metadata, _) = self.load_content(&path)?;
                 all_pages.push((path, metadata));
             } else if path.is_dir() {
-               all_pages.extend(self.all_pages_in_dir(&path)?); 
+                all_pages.extend(self.all_pages_in_dir(&path)?);
             }
         }
         Ok(all_pages)
@@ -255,17 +258,18 @@ impl LocalStorage {
             StorageQueryMethod::ContentFromName(ref name) => {
                 let path = self.get_content_path(&qry, Some(name), lang.as_ref(), Some("md"))?;
                 let (metadata, body) = self.load_content(&path)?;
-                Ok(StorageData::PageContent { metadata, body, lang })
+                Ok(StorageData::PageContent {
+                    metadata,
+                    body,
+                    lang,
+                })
             }
 
             StorageQueryMethod::ContentNumId(id) => {
                 self.ensure_all_pages_loaded(&qry.storage_slug)?;
                 let all_pages = self.all_pages.read();
                 let pages = all_pages.get(&qry.storage_slug).unwrap();
-                let mut matches = pages
-                    .iter()
-                    .filter(|(_, m)| m.id == id)
-                    .map(|(p, _)| p);
+                let mut matches = pages.iter().filter(|(_, m)| m.id == id).map(|(p, _)| p);
                 let Some(fpath) = matches.next() else {
                     return Err(LocalStorageError::NoMatch(format!("id = {id}")));
                 };
@@ -274,13 +278,21 @@ impl LocalStorage {
                     return Err(LocalStorageError::TooManyMatches(other_matches, 1));
                 }
                 let (metadata, body) = self.load_content(fpath)?;
-                Ok(StorageData::PageContent { metadata, body, lang })
+                Ok(StorageData::PageContent {
+                    metadata,
+                    body,
+                    lang,
+                })
             }
 
             StorageQueryMethod::ContentSlug(ref name) => {
                 let path = self.get_content_path(&qry, Some(name), lang.as_ref(), Some("md"))?;
                 let (metadata, body) = self.load_content(&path)?;
-                Ok(StorageData::PageContent { metadata, body, lang })
+                Ok(StorageData::PageContent {
+                    metadata,
+                    body,
+                    lang,
+                })
             }
 
             StorageQueryMethod::RecentPages => {
@@ -292,16 +304,21 @@ impl LocalStorage {
                     .iter()
                     .filter(|(_, m)| !m.hidden)
                     .collect::<Vec<&(PathBuf, PageMetadata)>>();
-                
+
                 results.sort_by(|(_, a), (_, b)| a.compare_md(sort_key, b));
                 if rev {
                     results.reverse();
                 }
 
-                let results = results.into_iter()
+                let results = results
+                    .into_iter()
                     .cloned()
                     .map(|(p, m)| m)
-                    .take(if qry.limit == 0 { usize::MAX } else { qry.limit })
+                    .take(if qry.limit == 0 {
+                        usize::MAX
+                    } else {
+                        qry.limit
+                    })
                     .collect();
                 Ok(StorageData::RecentPages(results))
             }
@@ -314,20 +331,18 @@ impl LocalStorage {
             }
 
             StorageQueryMethod::StaticFile(f) => {
-                let fpath = PathBuf::from(f.trim_start_matches("/"));
+                let fpath = PathBuf::from(f.trim_start_matches('/'));
                 for inc in self.include_assets.iter() {
                     let try_path = inc.join(&fpath);
-                    let try_path = try_path.absolutize().map_err(|e|
-                        LocalStorageError::BadRequest(
-                            format!("Absolutize {fpath:?}: {e:?}")
-                        )
-                    )?;
+                    let try_path = try_path.absolutize().map_err(|e| {
+                        LocalStorageError::BadRequest(format!("Absolutize {fpath:?}: {e:?}"))
+                    })?;
 
                     if !try_path.starts_with(inc) {
                         log::error!("Possible directory traversal attack spotted");
                         log::error!("Got a request for static file {fpath:?}");
                         return Err(LocalStorageError::AttackSuspected(
-                            "local-storage::static-file::directory-traversal".to_string()
+                            "local-storage::static-file::directory-traversal".to_string(),
                         ));
                     }
 
@@ -335,7 +350,9 @@ impl LocalStorage {
                         return Err(LocalStorageError::BadRequest("no file name".to_string()));
                     };
                     let Some(fname) = fname.to_str() else {
-                        return Err(LocalStorageError::BadRequest("illegal characters in file name".to_string()));
+                        return Err(LocalStorageError::BadRequest(
+                            "illegal characters in file name".to_string(),
+                        ));
                     };
 
                     if try_path.is_file() {
@@ -357,12 +374,14 @@ impl LocalStorage {
                 let pages = all_pages.get(&qry.storage_slug).unwrap();
                 let mut matches = pages
                     .iter()
-                    .filter(|(_, m)| !m.hidden && {
-                        let valcmp = m.get_metadata(&keys);
-                        match (valcmp, val.as_ref()) {
-                            (Some(md), Some(val)) => compare_similar_md(md, val),
-                            (Some(_), None) | (None, Some(_)) => false,
-                            (None, None) => true,
+                    .filter(|(_, m)| {
+                        !m.hidden && {
+                            let valcmp = m.get_metadata(&keys);
+                            match (valcmp, val.as_ref()) {
+                                (Some(md), Some(val)) => compare_similar_md(md, val),
+                                (Some(_), None) | (None, Some(_)) => false,
+                                (None, None) => true,
+                            }
                         }
                     })
                     .map(|(_, m)| m)
@@ -373,8 +392,13 @@ impl LocalStorage {
                     matches.reverse();
                 }
 
-                let matches = matches.into_iter()
-                    .take(if qry.limit == 0 { usize::MAX } else { qry.limit })
+                let matches = matches
+                    .into_iter()
+                    .take(if qry.limit == 0 {
+                        usize::MAX
+                    } else {
+                        qry.limit
+                    })
                     .cloned()
                     .collect::<Vec<PageMetadata>>();
                 Ok(StorageData::SimilarPages(matches))
@@ -388,9 +412,7 @@ impl LocalStorage {
                 let matches = pages
                     .iter()
                     .filter(|(_, m)| m.get_metadata(&keys) == val.as_ref())
-                    .map(|(_, m)| m.get_metadata(&query).cloned())
-                    .filter(|v| v.is_some())
-                    .map(|v| v.unwrap())
+                    .filter_map(|(_, m)| m.get_metadata(&query).cloned())
                     .collect::<Vec<serde_json::Value>>();
                 Ok(StorageData::QueryMetadata(matches))
             }
@@ -398,7 +420,7 @@ impl LocalStorage {
                 let path = self.get_content_path(&qry, Some(name), lang.as_ref(), Some("toml"))?;
                 let data = std::fs::read_to_string(&path)
                     .map_err(|e| LocalStorageError::LoadContext(format!("{path:?}: {e:?}")))?;
-                let ctxt : toml::Value = toml::from_str(&data)
+                let ctxt: toml::Value = toml::from_str(&data)
                     .map_err(|e| LocalStorageError::TomlDecode(format!("{path:?}: {e:?}")))?;
                 Ok(StorageData::Context(ctxt))
             }
@@ -443,7 +465,7 @@ impl StorageBackend for LocalStorage {
             Err(e) => {
                 log::error!("{e:?}");
                 StorageData::Error(e)
-            },
+            }
         }
     }
 }
@@ -466,18 +488,18 @@ fn compare_similar_md(a: &serde_json::Value, b: &serde_json::Value) -> bool {
     a == b
 }
 
-fn load_all_templates_from_dir(fpath: &PathBuf, parents: Vec<String>, hmap: &mut HashMap<String, String>) -> Result<(), LocalStorageError> {
-    let entries = std::fs::read_dir(fpath)
-        .map_err(|e|
-            LocalStorageError::TemplateLoading(
-                format!("Cannot list files in dir {fpath:?}: {e:?}")
-            )
-        )?;
+fn load_all_templates_from_dir(
+    fpath: &PathBuf,
+    parents: Vec<String>,
+    hmap: &mut HashMap<String, String>,
+) -> Result<(), LocalStorageError> {
+    let entries = std::fs::read_dir(fpath).map_err(|e| {
+        LocalStorageError::TemplateLoading(format!("Cannot list files in dir {fpath:?}: {e:?}"))
+    })?;
 
     for path in entries {
-        let path = path.map_err(|e|
-            LocalStorageError::TemplateLoading(format!("Get path entry: {e:?}"))
-        )?;
+        let path =
+            path.map_err(|e| LocalStorageError::TemplateLoading(format!("Get path entry: {e:?}")))?;
         let path = path.path();
         if path.is_dir() {
             let Some(dname) = path.components().last().unwrap().as_os_str().to_str() else {
@@ -495,12 +517,11 @@ fn load_all_templates_from_dir(fpath: &PathBuf, parents: Vec<String>, hmap: &mut
             let mut template_path = parents.clone();
             template_path.push(template_name.to_string());
             let template_name = template_path.join("/");
-            let content = std::fs::read_to_string(&path)
-                .map_err(|e| 
-                    LocalStorageError::TemplateLoading(
-                        format!("Loading template {path:?} error: {e:?}")
-                    )
-                )?;
+            let content = std::fs::read_to_string(&path).map_err(|e| {
+                LocalStorageError::TemplateLoading(format!(
+                    "Loading template {path:?} error: {e:?}"
+                ))
+            })?;
             hmap.insert(template_name.to_string(), content);
         }
     }

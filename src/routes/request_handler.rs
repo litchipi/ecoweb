@@ -10,8 +10,8 @@ use super::data_extract::RequestArgs;
 use crate::errors::Errcode;
 use crate::page::{PageMetadata, PageType};
 use crate::render::Render;
-use crate::storage::{ContextQuery, StorageQueryMethod};
 use crate::storage::StorageQuery;
+use crate::storage::{ContextQuery, StorageQueryMethod};
 
 #[derive(Clone)]
 pub struct PageHandler {
@@ -29,9 +29,18 @@ impl Handler<RequestArgs> for PageHandler {
         let add_ctxt = self.ptype.add_context.clone();
         let add_headers = self.ptype.add_headers.clone();
 
-        let storage_query = match self.ptype.content_query.build_query(&self.ptype.storage, &args) {
+        let storage_query = match self
+            .ptype
+            .content_query
+            .build_query(&self.ptype.storage, &args)
+        {
             Ok(qry) => qry,
-            Err(e) => return Box::pin(e.build_http_response_from_data(args.render, args.base_context.get_ref().clone())),
+            Err(e) => {
+                return Box::pin(e.build_http_response_from_data(
+                    args.render,
+                    args.base_context.get_ref().clone(),
+                ))
+            }
         };
 
         Box::pin(Self::respond(
@@ -67,11 +76,7 @@ impl PageHandler {
         Self::build_response(
             args.render.clone(),
             add_headers,
-            Self::handle_request(qry,
-                &args,
-                add_ctxt,
-                default_template,
-            ).await,
+            Self::handle_request(qry, &args, add_ctxt, default_template).await,
             &args.base_context,
         )
         .await
@@ -105,8 +110,8 @@ impl PageHandler {
             ctxt.insert("lang", lang);
         }
 
-        insert_add_context(&add_ctxt, &metadata, &args, &mut ctxt).await?;
-        insert_add_context(&metadata.add_context, &metadata, &args, &mut ctxt).await?;
+        insert_add_context(&add_ctxt, &metadata, args, &mut ctxt).await?;
+        insert_add_context(&metadata.add_context, &metadata, args, &mut ctxt).await?;
 
         let template = if let Some(ref template) = metadata.template {
             template
@@ -114,9 +119,7 @@ impl PageHandler {
             &default_template
         };
 
-        let res = args.render
-            .render_content(template, body, ctxt)
-            .await?;
+        let res = args.render.render_content(template, body, ctxt).await?;
         Ok(res)
     }
 
@@ -143,7 +146,7 @@ pub async fn insert_add_context(
     add_ctxt: &HashMap<String, ContextQuery>,
     page_md: &PageMetadata,
     args: &RequestArgs,
-    ctxt: &mut Context
+    ctxt: &mut Context,
 ) -> Result<(), Errcode> {
     for (name, context_query) in add_ctxt {
         if let ContextQuery::Plain(d) = context_query {
@@ -156,7 +159,7 @@ pub async fn insert_add_context(
                 qry.set_lang(lang.clone());
             }
 
-            let val = context_query.insert_data(name, ctxt, args.storage.query(qry).await)?;
+            context_query.insert_data(name, ctxt, args.storage.query(qry).await)?;
         }
     }
     Ok(())

@@ -1,10 +1,10 @@
-use std::pin::Pin;
-use std::future::Future;
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
 
-use actix_web::web::{Data, Form};
-use actix_web::dev::Payload;
 use actix_web::body::BoxBody;
+use actix_web::dev::Payload;
+use actix_web::web::{Data, Form};
 use actix_web::{FromRequest, Handler, HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
 use tera::Context;
@@ -45,9 +45,7 @@ impl FormAction {
         match self.method {
             FormActionMethod::SendOverEmail(ref subject) => {
                 let serialized = bincode::serialize(&req.data)?;
-                req.config.mail.send_data(
-                    &subject, &serialized,
-                )?;
+                req.config.mail.send_data(subject, &serialized)?;
                 Ok(())
             }
         }
@@ -70,21 +68,21 @@ impl FromRequest for FormReq {
     fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
         let config = req
             .app_data::<Data<Config>>()
-            .expect(format!("Unable to get config from app_data").as_str())
+            .unwrap_or_else(|| panic!("{}", "Unable to get config from app_data".to_string()))
             .clone();
         let render = req
             .app_data::<Data<Render>>()
-            .expect(format!("Unable to get render from app_data").as_str())
+            .unwrap_or_else(|| panic!("{}", "Unable to get render from app_data".to_string()))
             .clone();
         let storage = req
             .app_data::<Data<Storage>>()
-            .expect(format!("Unable to get storage from app_data").as_str())
+            .unwrap_or_else(|| panic!("{}", "Unable to get storage from app_data".to_string()))
             .clone();
         let ctxt = req
             .app_data::<Data<Context>>()
-            .expect(format!("Unable to get tera context from app_data").as_str())
+            .unwrap_or_else(|| panic!("{}", "Unable to get tera context from app_data".to_string()))
             .clone();
-        let lang = get_lang(&req);
+        let lang = get_lang(req);
 
         let req = req.clone();
         let mut payload = payload.take();
@@ -120,35 +118,43 @@ impl Handler<FormReq> for FormRequestHandler {
 }
 
 impl FormRequestHandler {
-    async fn handle(action: FormAction,  req: FormReq) -> HttpResponse<BoxBody> {
+    async fn handle(action: FormAction, req: FormReq) -> HttpResponse<BoxBody> {
         let res = action.action(&req).await;
         match res {
             Ok(_) => {
                 let mut ctxt = req.ctxt.get_ref().clone();
                 ctxt.insert("pref_langs", &req.lang.as_ref());
-                let lang = req.lang
-                    .map(|langs|
+                let lang = req
+                    .lang
+                    .and_then(|langs| {
                         langs
                             .iter()
                             .filter(|l| action.notification.contains_key(*l))
                             .nth(0)
                             .cloned()
-                    )
-                    .flatten()
-                    .or(Some(req.config.default_lang.clone()))
-                    .unwrap();
+                    })
+                    .unwrap_or(req.config.default_lang.clone());
                 let notification = action.notification.get(&lang).unwrap();
-                match req.render
+                match req
+                    .render
                     .render_notification(
                         notification.title.clone(),
                         notification.message.clone(),
                         ctxt,
-                    ).await {
+                    )
+                    .await
+                {
                     Ok(body) => HttpResponse::Ok().body(body),
-                    Err(e) => e.build_http_response(&req.render, req.ctxt.get_ref().clone()).await,
+                    Err(e) => {
+                        e.build_http_response(&req.render, req.ctxt.get_ref().clone())
+                            .await
+                    }
                 }
-            },
-            Err(e) => e.build_http_response(&req.render, req.ctxt.get_ref().clone()).await,
+            }
+            Err(e) => {
+                e.build_http_response(&req.render, req.ctxt.get_ref().clone())
+                    .await
+            }
         }
     }
 }

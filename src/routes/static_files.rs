@@ -14,12 +14,11 @@ use super::data_extract::RequestArgs;
 #[derive(Clone)]
 pub struct StaticFilesRoute;
 impl StaticFilesRoute {
-    pub fn init(cfg: &Config) -> StaticFilesRoute { StaticFilesRoute }
+    pub fn init(cfg: &Config) -> StaticFilesRoute {
+        StaticFilesRoute
+    }
 
-    pub async fn serve_file(
-        fname: String,
-        storage: Data<Storage>,
-    ) -> HttpResponse<BoxBody> {
+    pub async fn serve_file(fname: String, storage: Data<Storage>) -> HttpResponse<BoxBody> {
         let mime = mime_guess::from_path(&fname).first_or_octet_stream();
 
         let qry = StorageQuery::static_file(fname);

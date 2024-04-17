@@ -8,7 +8,7 @@ use tera::{try_get_value, Context};
 
 pub fn markdown_render(
     val: &tera::Value,
-    _: &HashMap<String, tera::Value>
+    _: &HashMap<String, tera::Value>,
 ) -> Result<tera::Value, tera::Error> {
     let s = try_get_value!("markdown_render", "value", String, val)
         .trim()
@@ -40,7 +40,11 @@ impl MarkdownRenderer {
         Ok(body)
     }
 
-    pub fn render_to_ctxt(&self, content: String, ctxt: &mut Context) -> Result<(), mdtrans::Errcode> {
+    pub fn render_to_ctxt(
+        &self,
+        content: String,
+        ctxt: &mut Context,
+    ) -> Result<(), mdtrans::Errcode> {
         let mut transformer = MarkdownToHtml::init();
         let mut body = transform_markdown_string(content, &mut transformer)?;
         if transformer.current_section > 0 {

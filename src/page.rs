@@ -30,8 +30,8 @@ pub struct PageMetadata {
 
 impl PageMetadata {
     pub fn compare_md(&self, keys: &Vec<String>, other: &Self) -> std::cmp::Ordering {
-        let data = self.get_metadata(&keys);
-        let other = other.get_metadata(&keys);
+        let data = self.get_metadata(keys);
+        let other = other.get_metadata(keys);
         let ord = compare_tera_values(data, other);
         // By default, get from greater to lower
         ord.reverse()
@@ -103,76 +103,75 @@ pub fn hash_json(s: &mut DefaultHasher, val: &serde_json::Value) {
                 s.write(k.as_bytes());
                 hash_json(s, map.get(k).unwrap());
             }
-        },
+        }
     }
 }
 
 // Implementation to compare values of metadata
 pub fn compare_tera_values(a: Option<&Value>, b: Option<&Value>) -> std::cmp::Ordering {
-        match (a, b) {
-            (None, None) => std::cmp::Ordering::Equal,
-            (Some(_), None) => std::cmp::Ordering::Greater,
-            (None, Some(_)) => std::cmp::Ordering::Less,
-            (Some(a), Some(b)) => match a {
-                tera::Value::Null if b.is_null() => std::cmp::Ordering::Equal,
-                tera::Value::Bool(d) if b.is_boolean() => d.cmp(&b.as_bool().unwrap()),
-                tera::Value::Number(n) if b.is_number() => {
-                    if n.is_i64() && b.is_i64() {
-                        n.as_i64().unwrap().cmp(&b.as_i64().unwrap())
-                    } else if n.is_u64() && b.is_u64() {
-                        n.as_u64().unwrap().cmp(&b.as_u64().unwrap())
-                    } else if n.is_f64() && b.is_f64() {
-                        n.as_f64().unwrap()
-                            .partial_cmp(&b.as_f64().unwrap())
-                            .or(Some(std::cmp::Ordering::Equal))
-                            .unwrap()
-                    } else {
-                        unreachable!()
-                    }
-                },
-                tera::Value::String(s) if b.is_string() => {
-                    s.cmp(&b.as_str().unwrap().to_string())
-                },
-                tera::Value::Array(v) if b.is_array() => {
-                    for el_a in v {
-                        for el_b in b.as_array().unwrap() {
-                            let ord = compare_tera_values(Some(el_a), Some(el_b));
-                            if ord.is_ne() {
-                                return ord;
-                            }
-                        }
-                    }
-                    std::cmp::Ordering::Equal
-                },
-                tera::Value::Object(obj_a) if b.is_object() => {
-                    let obj_b = b.as_object().unwrap();
-                    let mut keys_done = vec![];
-                    for (key_a, val_a) in obj_a.iter() {
-                        let Some(val_b) = obj_b.get(key_a) else {
-                            return std::cmp::Ordering::Greater;
-                        };
-                        let ord = compare_tera_values(Some(val_a), Some(val_b));
+    match (a, b) {
+        (None, None) => std::cmp::Ordering::Equal,
+        (Some(_), None) => std::cmp::Ordering::Greater,
+        (None, Some(_)) => std::cmp::Ordering::Less,
+        (Some(a), Some(b)) => match a {
+            tera::Value::Null if b.is_null() => std::cmp::Ordering::Equal,
+            tera::Value::Bool(d) if b.is_boolean() => d.cmp(&b.as_bool().unwrap()),
+            tera::Value::Number(n) if b.is_number() => {
+                if n.is_i64() && b.is_i64() {
+                    n.as_i64().unwrap().cmp(&b.as_i64().unwrap())
+                } else if n.is_u64() && b.is_u64() {
+                    n.as_u64().unwrap().cmp(&b.as_u64().unwrap())
+                } else if n.is_f64() && b.is_f64() {
+                    n.as_f64()
+                        .unwrap()
+                        .partial_cmp(&b.as_f64().unwrap())
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                } else {
+                    unreachable!()
+                }
+            }
+            tera::Value::String(s) if b.is_string() => s.cmp(&b.as_str().unwrap().to_string()),
+            tera::Value::Array(v) if b.is_array() => {
+                for el_a in v {
+                    for el_b in b.as_array().unwrap() {
+                        let ord = compare_tera_values(Some(el_a), Some(el_b));
                         if ord.is_ne() {
                             return ord;
                         }
-                        keys_done.push(key_a.clone());
                     }
-                    if !obj_b.keys().all(|k| keys_done.contains(k)) {
-                        std::cmp::Ordering::Less
-                    } else {
-                        std::cmp::Ordering::Equal
-                    }
-                },
-                _ => std::cmp::Ordering::Greater,
+                }
+                std::cmp::Ordering::Equal
             }
-        }
+            tera::Value::Object(obj_a) if b.is_object() => {
+                let obj_b = b.as_object().unwrap();
+                let mut keys_done = vec![];
+                for (key_a, val_a) in obj_a.iter() {
+                    let Some(val_b) = obj_b.get(key_a) else {
+                        return std::cmp::Ordering::Greater;
+                    };
+                    let ord = compare_tera_values(Some(val_a), Some(val_b));
+                    if ord.is_ne() {
+                        return ord;
+                    }
+                    keys_done.push(key_a.clone());
+                }
+                if !obj_b.keys().all(|k| keys_done.contains(k)) {
+                    std::cmp::Ordering::Less
+                } else {
+                    std::cmp::Ordering::Equal
+                }
+            }
+            _ => std::cmp::Ordering::Greater,
+        },
+    }
 }
 
 fn deserialize_id<'de, D>(deser: D) -> Result<u64, D::Error>
-    where D: serde::Deserializer<'de>
+where
+    D: serde::Deserializer<'de>,
 {
     log::debug!("Custom deserialize");
     let val = serde_json::Value::deserialize(deser)?;
     log::debug!("Got id: {val}");
-    Ok(val.as_u64().or(Some(0)).unwrap())
+    Ok(val.as_u64().unwrap_or(0))
 }
