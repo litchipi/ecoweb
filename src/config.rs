@@ -30,6 +30,8 @@ pub struct Config {
     pub default_lang: String,
     pub static_files_route: String,
 
+    pub notification_template: String,
+
     #[serde(default)]
     pub plain_context: HashMap<String, serde_json::Value>,
 

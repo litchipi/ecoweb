@@ -18,6 +18,7 @@ pub struct Render {
     storage: Arc<Storage>,
     engine: Arc<RwLock<Tera>>,
     markdown_render: MarkdownRenderer,
+    notification_template: String,
 }
 
 impl Render {
@@ -27,6 +28,7 @@ impl Render {
             storage,
             engine: Arc::new(RwLock::new(engine)),
             markdown_render: MarkdownRenderer::init(),
+            notification_template: cfg.notification_template.clone(),
         })
     }
 
@@ -60,11 +62,48 @@ impl Render {
         Ok(result)
     }
 
-    pub async fn render_error(&self, err: &Errcode) -> String {
-        log::warn!("Returning error to client:\n{err:?}");
-        // TODO    Try to render error page
-        //    If template doesn't exist, or fails to render, display a pure HTML message
-        format!("<html><body><h1>Error:</h1><pre><code>{err:?}</code></pre></body></html>")
+    pub async fn render_error(&self, err: &Errcode, ctxt: Context) -> String {
+        match self.render_notification(
+            "Error".to_string(),
+            format!("{err:?}"),
+            ctxt
+        ).await {
+            Ok(body) => body,
+            Err(e) => {
+                format!("
+                    <html>
+                        <body>
+                            <h1>Error while displaying the error page</h1>
+                            <p>Render error on error page:</p>
+                            <pre><code>{e:?}</code></pre>
+                            <h2>Occured while treating the following error</h2>
+                            <pre><code>{err:?}</code></pre>
+                        </body>
+                    </html>"
+                )
+            }
+        }
+    }
+
+    pub async fn render_notification(&self, title: String, msg: String, mut ctxt: Context) -> Result<String, Errcode> {
+        #[cfg(feature = "hot-reloading")]
+        {
+            *self.engine.write() = Self::init_engine(&self.storage).await?;
+        }
+
+        ctxt.insert("notif_title", &title);
+        ctxt.insert("notif_content", &msg);
+
+        let result = self.engine.read().render(
+            &self.notification_template,
+            &ctxt
+        )?;
+
+        #[cfg(feature = "html_minify")]
+        let result = minify_html(result);
+        
+        Ok(result)
+        
     }
 }
 
