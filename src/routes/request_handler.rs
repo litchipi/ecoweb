@@ -1,6 +1,6 @@
 use actix_web::body::BoxBody;
 use actix_web::web::Data;
-use actix_web::{Handler, HttpResponse, HttpResponseBuilder};
+use actix_web::{Handler, HttpResponse};
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
@@ -31,7 +31,7 @@ impl Handler<RequestArgs> for PageHandler {
 
         let storage_query = match self.ptype.content_query.build_query(&self.ptype.storage, &args) {
             Ok(qry) => qry,
-            Err(e) => return Box::pin(Self::error(args.render, e)),
+            Err(e) => return Box::pin(e.build_http_response_from_data(args.render, args.base_context.get_ref().clone())),
         };
 
         Box::pin(Self::respond(
@@ -72,6 +72,7 @@ impl PageHandler {
                 add_ctxt,
                 default_template,
             ).await,
+            &args.base_context,
         )
         .await
     }
@@ -114,21 +115,16 @@ impl PageHandler {
         };
 
         let res = args.render
-            .render_content(template, body, &metadata, ctxt)
+            .render_content(template, body, ctxt)
             .await?;
         Ok(res)
-    }
-
-    pub async fn error(render: Data<Render>, e: Errcode) -> HttpResponse<BoxBody> {
-        let body = render.render_error(&e).await;
-        let mut builder: HttpResponseBuilder = e.into();
-        builder.body(body)
     }
 
     pub async fn build_response(
         render: Data<Render>,
         add_headers: HashMap<String, String>,
         body: Result<String, Errcode>,
+        base_context: &Context,
     ) -> HttpResponse {
         match body {
             Ok(text) => {
@@ -138,7 +134,7 @@ impl PageHandler {
                 }
                 reply.body(text)
             }
-            Err(e) => Self::error(render, e).await,
+            Err(e) => e.build_http_response(&render, base_context.clone()).await,
         }
     }
 }

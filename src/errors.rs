@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
-use actix_web::{HttpResponse, HttpResponseBuilder};
+use actix_web::{HttpResponse, HttpResponseBuilder, web::Data};
+use tera::Context;
 
-use crate::storage::StorageErrorType;
+use crate::{storage::StorageErrorType, render::Render};
 
 #[derive(Debug)]
 pub enum Errcode {
@@ -33,6 +34,19 @@ pub enum Errcode {
 
     // External services
     Mail(crate::mail::MailErrcode),
+}
+
+impl Errcode {
+    pub async fn build_http_response_from_data(self, render: Data<Render>, ctxt: Context) -> HttpResponse {
+        self.build_http_response(render.get_ref(), ctxt).await
+    }
+
+    pub async fn build_http_response(self, render: &Render, ctxt: Context) -> HttpResponse {
+        log::error!("{self:?}");
+        let errpage = render.render_error(&self, ctxt).await;
+        let mut b : HttpResponseBuilder = self.into();
+        b.body(errpage)
+    }
 }
 
 impl Into<HttpResponseBuilder> for Errcode {

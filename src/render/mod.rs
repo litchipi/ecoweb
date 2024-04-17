@@ -6,7 +6,6 @@ use tera::{try_get_value, Context, Tera};
 
 use crate::config::Config;
 use crate::errors::Errcode;
-use crate::page::PageMetadata;
 use crate::storage::{Storage, StorageQuery};
 
 use self::markdown::MarkdownRenderer;
@@ -45,7 +44,6 @@ impl Render {
         &self,
         template: &String,
         body: String,
-        md: &PageMetadata,
         mut ctxt: Context,
     ) -> Result<String, Errcode> {
         #[cfg(feature = "hot-reloading")]
