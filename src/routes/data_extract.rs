@@ -14,7 +14,7 @@ pub struct RequestArgs {
     pub lang: Option<Vec<String>>,
     pub storage: Data<Storage>,
     pub render: Data<Render>,
-    pub base_context: Data<Context>,
+    pub ctxt: Context,
     pub match_infos: Path<Url>,
 }
 
@@ -24,13 +24,17 @@ impl FromRequest for RequestArgs {
 
     // Function called everytime we have a request to handle
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
+        let ctxt : Data<Context> = get_from_req(req);
+        let mut ctxt = ctxt.get_ref().clone();
+        let lang = get_lang(req);
+        ctxt.insert("pref_langs", &lang);
         std::future::ready(Ok(RequestArgs {
             uri: req.uri().to_string(),
-            lang: get_lang(req),
             storage: get_from_req(req),
             render: get_from_req(req),
-            base_context: get_from_req(req),
             match_infos: req.match_info().clone(),
+            lang,
+            ctxt,
         }))
     }
 }

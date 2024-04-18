@@ -56,7 +56,7 @@ pub struct FormReq {
     config: Data<Config>,
     render: Data<Render>,
     storage: Data<Storage>,
-    ctxt: Data<Context>,
+    ctxt: Context,
     data: Form<FormData>,
     lang: Option<Vec<String>>,
 }
@@ -83,6 +83,8 @@ impl FromRequest for FormReq {
             .unwrap_or_else(|| panic!("{}", "Unable to get tera context from app_data".to_string()))
             .clone();
         let lang = get_lang(req);
+        let mut ctxt = ctxt.get_ref().clone();
+        ctxt.insert("pref_langs", &lang);
 
         let req = req.clone();
         let mut payload = payload.take();
@@ -122,8 +124,6 @@ impl FormRequestHandler {
         let res = action.action(&req).await;
         match res {
             Ok(_) => {
-                let mut ctxt = req.ctxt.get_ref().clone();
-                ctxt.insert("pref_langs", &req.lang.as_ref());
                 let lang = req
                     .lang
                     .and_then(|langs| {
@@ -140,20 +140,19 @@ impl FormRequestHandler {
                     .render_notification(
                         notification.title.clone(),
                         notification.message.clone(),
-                        ctxt,
+                        req.ctxt.clone(), // I don't like this
                     )
                     .await
                 {
                     Ok(body) => HttpResponse::Ok().body(body),
                     Err(e) => {
-                        e.build_http_response(&req.render, req.ctxt.get_ref().clone())
+                        e.build_http_response(&req.render, req.ctxt.clone())
                             .await
                     }
                 }
             }
             Err(e) => {
-                e.build_http_response(&req.render, req.ctxt.get_ref().clone())
-                    .await
+                e.build_http_response(&req.render, req.ctxt).await
             }
         }
     }

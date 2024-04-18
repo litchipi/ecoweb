@@ -38,7 +38,7 @@ impl Handler<RequestArgs> for PageHandler {
             Err(e) => {
                 return Box::pin(e.build_http_response_from_data(
                     args.render,
-                    args.base_context.get_ref().clone(),
+                    args.ctxt,
                 ))
             }
         };
@@ -77,7 +77,7 @@ impl PageHandler {
             args.render.clone(),
             add_headers,
             Self::handle_request(qry, &args, add_ctxt, default_template).await,
-            &args.base_context,
+            &args.ctxt,
         )
         .await
     }
@@ -88,7 +88,7 @@ impl PageHandler {
         add_ctxt: HashMap<String, ContextQuery>,
         default_template: String,
     ) -> Result<String, Errcode> {
-        let mut ctxt = args.base_context.as_ref().clone();
+        let mut ctxt = args.ctxt.clone();
         let (lang_opt, metadata, body) = if let StorageQueryMethod::NoOp = qry.method {
             (None, PageMetadata::default(), "".to_string())
         } else {
@@ -99,11 +99,6 @@ impl PageHandler {
         };
 
         ctxt.insert("route", &args.uri);
-
-        // Lang that the remote client prefers
-        if let Some(ref all_langs) = args.lang {
-            ctxt.insert("pref_langs", all_langs);
-        }
 
         // Lang that the data from storage is written in
         if let Some(ref lang) = lang_opt {
