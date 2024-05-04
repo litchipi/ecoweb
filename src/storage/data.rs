@@ -18,8 +18,7 @@ pub enum StorageData {
         body: String,
         lang: Option<String>,
     },
-    Template(String),
-    BaseTemplate(HashMap<String, String>),
+    Templates(HashMap<String, String>),
     StaticFileData(Vec<u8>),
     Error(StorageErrorType),
     Context(toml::Value),
@@ -67,18 +66,9 @@ impl StorageData {
     }
 
     #[inline]
-    pub fn template(self) -> Result<String, Errcode> {
-        match self {
-            StorageData::Template(template_str) => Ok(template_str),
-            StorageData::Error(e) => Err(Errcode::StorageError(e)),
-            _ => Err(Errcode::WrongStorageData("Template")),
-        }
-    }
-
-    #[inline]
     pub fn base_templates(self) -> Result<HashMap<String, String>, Errcode> {
         match self {
-            StorageData::BaseTemplate(tmap) => Ok(tmap),
+            StorageData::Templates(tmap) => Ok(tmap),
             StorageData::Error(e) => Err(Errcode::StorageError(e)),
             _ => Err(Errcode::WrongStorageData("BaseTemplate")),
         }

@@ -84,7 +84,6 @@ pub struct LocalStorage {
 
     // Templates
     template_root: PathBuf,
-    base_templates: Vec<String>,
 
     // Assets
     include_assets: Vec<PathBuf>,
@@ -327,7 +326,7 @@ impl LocalStorage {
                 let mut all_templates = HashMap::new();
 
                 load_all_templates_from_dir(&self.template_root, vec![], &mut all_templates)?;
-                Ok(StorageData::BaseTemplate(all_templates))
+                Ok(StorageData::Templates(all_templates))
             }
 
             StorageQueryMethod::StaticFile(f) => {
@@ -450,6 +449,8 @@ impl StorageBackend for LocalStorage {
     {
         let mut storage = config.local_storage.clone();
         storage.canonicalize_paths(config)?;
+        log::debug!("Initialized local storage");
+        log::debug!("Supported langs: {:?}", storage.supported_lang);
         Ok(storage)
     }
 
