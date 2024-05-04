@@ -159,6 +159,22 @@ impl StorageQuery {
                 s.write(name.as_bytes());
             }
         }
+        if let Some(ref langs) = self.lang_pref {
+            s.write_u8(1);
+            for l in langs.iter() {
+                s.write(l.as_bytes());
+            }
+        } else {
+            s.write_u8(0);
+        }
+        if let Some(ref sort) = self.sort_by {
+            s.write_u8(if sort.1 { 1 } else { 0 });
+            for c in sort.0.iter() {
+                s.write(c.as_bytes());
+            }
+        } else {
+            s.write_u8(0);
+        }
         s.write_usize(self.limit);
         self.key = s.finish();
     }
