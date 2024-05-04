@@ -64,7 +64,7 @@ pub fn configure(cfg: &Config, app: &mut ServiceConfig) {
     for (_, ptype) in cfg.page_type.iter() {
         app.route(
             ptype.route.as_str(),
-            web::get().to(PageHandler::create(ptype)),
+            web::get().to(PageHandler::create(ptype, &cfg.default_lang)),
         );
     }
     upload::setup_routes(cfg, app);

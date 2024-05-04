@@ -16,6 +16,7 @@ use crate::storage::{ContextQuery, StorageQueryMethod};
 #[derive(Clone)]
 pub struct PageHandler {
     ptype: PageType,
+    default_lang: String,
 }
 
 impl Handler<RequestArgs> for PageHandler {
@@ -23,8 +24,11 @@ impl Handler<RequestArgs> for PageHandler {
     type Future = Pin<Box<dyn Future<Output = Self::Output>>>;
 
     // Function called every time we have a request to handle
-    fn call(&self, args: RequestArgs) -> Self::Future {
+    fn call(&self, mut args: RequestArgs) -> Self::Future {
         log::debug!("Handling request with lang {:?}", args.lang);
+        if args.lang.is_none() {
+            args.lang = Some(vec![self.default_lang.clone()]);
+        }
         let default_template = self.ptype.default_template.clone();
         let add_ctxt = self.ptype.add_context.clone();
         let add_headers = self.ptype.add_headers.clone();
@@ -55,9 +59,10 @@ impl Handler<RequestArgs> for PageHandler {
 
 impl PageHandler {
     // Function called on initialization for each worker
-    pub fn create(ptype: &PageType) -> PageHandler {
+    pub fn create(ptype: &PageType, default_lang: &String) -> PageHandler {
         PageHandler {
             ptype: ptype.clone(),
+            default_lang: default_lang.clone(),
         }
     }
 
