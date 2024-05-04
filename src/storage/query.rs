@@ -181,6 +181,7 @@ impl StorageQuery {
 
     pub fn set_lang(&mut self, lang: Vec<String>) {
         self.lang_pref = Some(lang);
+        self.update_key();
     }
 
     pub fn list_opts(&mut self, opts: &QueryListOptions) {
