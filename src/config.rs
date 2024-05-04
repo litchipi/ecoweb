@@ -105,6 +105,7 @@ impl Config {
 
     pub async fn base_templating_context(&self, storage: &Storage) -> Result<Context, Errcode> {
         let mut ctxt = Context::new();
+        ctxt.insert("default_lang", &self.default_lang);
         for (slug, data) in self.plain_context.iter() {
             ctxt.insert(slug, data);
         }

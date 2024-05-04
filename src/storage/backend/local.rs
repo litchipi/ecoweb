@@ -428,6 +428,9 @@ impl LocalStorage {
 
     pub fn select_lang(&self, qry: &StorageQuery) -> Result<Option<String>, LocalStorageError> {
         if let Some(ref lang) = qry.lang_pref {
+            log::trace!("Selecting a lang between {:?}, based on the supported ones: {:?}",
+                lang, self.supported_lang,
+            );
             for l in lang.iter() {
                 if self.supported_lang.contains(l) {
                     return Ok(Some(l.clone()));
