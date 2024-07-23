@@ -33,6 +33,7 @@ pub struct FormAction {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", content = "args")]
 pub enum FormActionMethod {
+    NoAction,
     SendOverEmail(String),
 }
 
@@ -43,6 +44,7 @@ impl FormAction {
 
     pub async fn action(&self, req: &FormReq) -> Result<(), Errcode> {
         match self.method {
+            FormActionMethod::NoAction => Ok(()),
             FormActionMethod::SendOverEmail(ref subject) => {
                 let serialized = bincode::serialize(&req.data)?;
                 req.config.mail.send_data(subject, &serialized)?;
