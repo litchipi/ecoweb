@@ -209,6 +209,7 @@ impl MarkdownTransformer for MarkdownToHtml {
                         &self.syntax_set,
                         ClassStyle::Spaced,
                     );
+
                     let mut is_err = false;
                     for line in LinesWithEndings::from(&text) {
                         if let Err(e) =
