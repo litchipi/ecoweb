@@ -26,7 +26,7 @@ pub struct PostFormNotification {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FormAction {
     pub endpoint: String,
-    method: FormActionMethod,
+    pub method: FormActionMethod,
     notification: HashMap<String, PostFormNotification>,
 }
 
@@ -47,7 +47,7 @@ impl FormAction {
             FormActionMethod::NoAction => Ok(()),
             FormActionMethod::SendOverEmail(ref subject) => {
                 let serialized = bincode::serialize(&req.data)?;
-                req.config.mail.send_data(subject, &serialized)?;
+                req.config.mail.as_ref().unwrap().send_data(subject, &serialized)?;
                 Ok(())
             }
         }

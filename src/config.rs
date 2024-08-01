@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 use tera::Context;
 
 use crate::errors::Errcode;
-use crate::form::FormAction;
-use crate::mail::MailConfig;
+use crate::form::{FormAction, FormActionMethod};
+use crate::mail::{MailConfig, MailErrcode};
 use crate::page::PageType;
 use crate::routes::UploadEndpoint;
 use crate::storage::{ContextQuery, Storage};
@@ -40,7 +40,7 @@ pub struct Config {
 
     page_config: PathBuf,
 
-    pub mail: MailConfig,
+    pub mail: Option<MailConfig>,
 
     #[serde(default)]
     pub page_type: HashMap<String, PageType>,
@@ -78,6 +78,14 @@ impl Config {
             }
         }
         config.page_type = page_def;
+
+        if config.form_endpoints
+            .iter()
+            .any(|(_, v)| matches!(v.method, FormActionMethod::SendOverEmail(_)))
+            && config.mail.is_none()
+        {
+            return Err(Errcode::Mail(MailErrcode::NoConfiguration));
+        }
 
         Ok(config)
     }

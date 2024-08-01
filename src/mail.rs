@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 pub enum MailErrcode {
+    NoConfiguration,
     DecodeB64Pubkey(base64::DecodeError),
     ImportPublicKey(rsa::pkcs1::Error),
     MailBodyEncrypt(rsa::Error),
