@@ -88,6 +88,13 @@ pub struct PageType {
 
     #[serde(default)]
     pub add_headers: HashMap<String, String>,
+
+    #[serde(default = "default_cache_max_age")]
+    pub cache_max_age: u32,
+}
+
+pub fn default_cache_max_age() -> u32 {
+    60 * 60 * 24
 }
 
 pub fn hash_json(s: &mut DefaultHasher, val: &serde_json::Value) {

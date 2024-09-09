@@ -1,13 +1,14 @@
-use std::{future::Future, pin::Pin};
+use std::future::Future;
+use std::pin::Pin;
 
-use actix_web::{
-    body::BoxBody, http::header, web::Data, Handler, HttpResponse, HttpResponseBuilder,
-};
+use actix_web::body::BoxBody;
+use actix_web::http::header;
+use actix_web::web::Data;
+use actix_web::{Handler, HttpResponse, HttpResponseBuilder};
 
-use crate::{
-    config::Config,
-    storage::{Storage, StorageQuery},
-};
+use crate::config::Config;
+use crate::page::default_cache_max_age;
+use crate::storage::{Storage, StorageQuery};
 
 use super::data_extract::RequestArgs;
 
@@ -25,6 +26,7 @@ impl StaticFilesRoute {
         match storage.query(qry).await.static_file() {
             Ok(data) => HttpResponse::Ok()
                 .insert_header(header::ContentType(mime))
+                .insert_header(header::CacheControl(vec![ header::CacheDirective::MaxAge(default_cache_max_age()) ]))
                 .body(data),
             Err(e) => {
                 log::warn!("Unable to get file: {e:?}");
