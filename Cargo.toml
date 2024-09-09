@@ -28,6 +28,7 @@ tera = "1.19.1"
 toml = "0.8.10"
 
 # Minification
+minify-html = "0.15.0"
 
 [features]
 default = [ "storage-local", "minify"] #"dev" ]
@@ -38,9 +39,10 @@ hot-reloading = []
 storage-local = []
 
 # Minification
-minify = [ "css_minify", "js_minify"]
+minify = [ "css_minify", "js_minify", "html_minify"]
 css_minify = []
 js_minify = []
+html_minify = []
 
 [profile.release]
 opt-level = 3

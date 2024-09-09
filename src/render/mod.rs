@@ -121,7 +121,6 @@ pub fn timestamp_to_date(
     Ok(val)
 }
 
-// TODO    Minify HTML
 pub fn minify_html(html: String) -> String {
-    html
+    String::from_utf8(minify_html::minify(html.as_bytes(), &minify_html::Cfg::default())).unwrap()
 }
