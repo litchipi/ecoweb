@@ -26,6 +26,9 @@ pub struct PageMetadata {
 
     #[serde(default)]
     pub template: Option<String>,
+
+    #[serde(default)]
+    pub minify: bool,
 }
 
 impl PageMetadata {

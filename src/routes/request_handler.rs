@@ -123,6 +123,16 @@ impl PageHandler {
         };
 
         let res = args.render.render_content(template, body, ctxt).await?;
+
+        #[cfg(feature = "html_minify")]
+        if metadata.minify {
+            if let Ok(minpage) = args.render.minify(&res) {
+                return Ok(minpage);
+            } else {
+                log::warn!("Unable to minify page {}", args.uri);
+            }
+        }
+
         Ok(res)
     }
 

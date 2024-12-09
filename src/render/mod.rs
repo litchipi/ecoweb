@@ -55,10 +55,6 @@ impl Render {
 
         self.markdown_render.render_to_ctxt(body, &mut ctxt)?;
         let result = self.engine.read().render(template, &ctxt)?;
-
-        #[cfg(feature = "html_minify")]
-        let result = minify_html(result);
-
         Ok(result)
     }
 
@@ -104,10 +100,13 @@ impl Render {
             .read()
             .render(&self.notification_template, &ctxt)?;
 
-        #[cfg(feature = "html_minify")]
-        let result = minify_html(result);
-
         Ok(result)
+    }
+
+    #[cfg(feature = "html_minify")]
+    pub fn minify(&self, page: &String) -> Result<String, Errcode> {
+        let data = minify_html::minify(page.as_bytes(), &minify_html::Cfg::default());
+        String::from_utf8(data).or(Err(Errcode::MinificationFailed))
     }
 }
 
@@ -119,8 +118,4 @@ pub fn timestamp_to_date(
     let date = chrono::DateTime::from_timestamp(s, 0).unwrap();
     let val = tera::to_value(date.format("%d/%m/%Y").to_string())?;
     Ok(val)
-}
-
-pub fn minify_html(html: String) -> String {
-    String::from_utf8(minify_html::minify(html.as_bytes(), &minify_html::Cfg::default())).unwrap()
 }

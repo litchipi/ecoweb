@@ -34,6 +34,8 @@ pub enum Errcode {
 
     // External services
     Mail(crate::mail::MailErrcode),
+
+    MinificationFailed,
 }
 
 impl Errcode {
