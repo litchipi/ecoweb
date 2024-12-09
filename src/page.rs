@@ -32,7 +32,7 @@ pub struct PageMetadata {
 }
 
 impl PageMetadata {
-    pub fn compare_md(&self, keys: &Vec<String>, other: &Self) -> std::cmp::Ordering {
+    pub fn compare_md(&self, keys: &[String], other: &Self) -> std::cmp::Ordering {
         let data = self.get_metadata(keys);
         let other = other.get_metadata(keys);
         let ord = compare_tera_values(data, other);
@@ -40,7 +40,7 @@ impl PageMetadata {
         ord.reverse()
     }
 
-    pub fn get_metadata(&self, keys: &Vec<String>) -> Option<&serde_json::Value> {
+    pub fn get_metadata(&self, keys: &[String]) -> Option<&serde_json::Value> {
         if keys.is_empty() {
             return None;
         }

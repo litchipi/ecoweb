@@ -69,10 +69,6 @@ pub fn configure(cfg: &Config, app: &mut ServiceConfig) {
     }
     upload::setup_routes(cfg, app);
 
-    for (_, form) in cfg.form_endpoints.iter() {
-        app.route(&form.endpoint, web::post().to(form.create_handler()));
-    }
-
     let static_endpoint =
         cfg.static_files_route.trim_end_matches('/').to_string() + "{filename:.*}";
     app.route(

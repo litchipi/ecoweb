@@ -32,9 +32,11 @@ impl Handler<RequestArgs> for PageHandler {
         let default_template = self.ptype.default_template.clone();
         let add_ctxt = self.ptype.add_context.clone();
         let mut add_headers = self.ptype.add_headers.clone();
-        let cache_max_age = self.ptype.cache_max_age.clone();
-        add_headers.insert("Cache-Control".to_string(), format!("max_age={cache_max_age}"));
-
+        let cache_max_age = self.ptype.cache_max_age;
+        add_headers.insert(
+            "Cache-Control".to_string(),
+            format!("max_age={cache_max_age}"),
+        );
 
         let storage_query = match self
             .ptype
@@ -42,12 +44,7 @@ impl Handler<RequestArgs> for PageHandler {
             .build_query(&self.ptype.storage, &args)
         {
             Ok(qry) => qry,
-            Err(e) => {
-                return Box::pin(e.build_http_response_from_data(
-                    args.render,
-                    args.ctxt,
-                ))
-            }
+            Err(e) => return Box::pin(e.build_http_response_from_data(args.render, args.ctxt)),
         };
 
         Box::pin(Self::respond(
@@ -62,10 +59,10 @@ impl Handler<RequestArgs> for PageHandler {
 
 impl PageHandler {
     // Function called on initialization for each worker
-    pub fn create(ptype: &PageType, default_lang: &String) -> PageHandler {
+    pub fn create(ptype: &PageType, default_lang: &str) -> PageHandler {
         PageHandler {
             ptype: ptype.clone(),
-            default_lang: default_lang.clone(),
+            default_lang: default_lang.to_owned(),
         }
     }
 

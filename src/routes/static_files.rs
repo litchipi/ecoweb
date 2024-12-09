@@ -26,7 +26,9 @@ impl StaticFilesRoute {
         match storage.query(qry).await.static_file() {
             Ok(data) => HttpResponse::Ok()
                 .insert_header(header::ContentType(mime))
-                .insert_header(header::CacheControl(vec![ header::CacheDirective::MaxAge(default_cache_max_age()) ]))
+                .insert_header(header::CacheControl(vec![header::CacheDirective::MaxAge(
+                    default_cache_max_age(),
+                )]))
                 .body(data),
             Err(e) => {
                 log::warn!("Unable to get file: {e:?}");

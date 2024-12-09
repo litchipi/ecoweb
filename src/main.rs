@@ -7,8 +7,6 @@ use actix_web::{web::Data, App, HttpServer};
 mod cache;
 mod config;
 mod errors;
-mod form;
-mod mail;
 mod page;
 mod render;
 mod routes;

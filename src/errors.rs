@@ -31,10 +31,6 @@ pub enum Errcode {
     // Serialization
     TomlDecode(&'static str, toml::de::Error),
     BinaryEncode(bincode::Error),
-
-    // External services
-    Mail(crate::mail::MailErrcode),
-
     MinificationFailed,
 }
 
@@ -77,26 +73,8 @@ impl From<mdtrans::Errcode> for Errcode {
     }
 }
 
-// impl std::fmt::Debug for Errcode {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         match self {
-//             Errcode::TomlDecode(what, err) => {
-//                 writeln!(f, "Error decoding {what}:")?;
-//                 write!(f, "{}", err.to_string())
-//             }
-//             _ => write!(f, "{:?}", self),
-//         }
-//     }
-// }
-
 impl From<bincode::Error> for Errcode {
     fn from(value: bincode::Error) -> Self {
         Errcode::BinaryEncode(value)
-    }
-}
-
-impl From<crate::mail::MailErrcode> for Errcode {
-    fn from(value: crate::mail::MailErrcode) -> Self {
-        Errcode::Mail(value)
     }
 }

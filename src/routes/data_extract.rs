@@ -24,7 +24,7 @@ impl FromRequest for RequestArgs {
 
     // Function called everytime we have a request to handle
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        let ctxt : Data<Context> = get_from_req(req);
+        let ctxt: Data<Context> = get_from_req(req);
         let mut ctxt = ctxt.get_ref().clone();
         let lang = get_lang(req);
         ctxt.insert("pref_langs", &lang);
