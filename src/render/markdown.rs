@@ -256,6 +256,14 @@ impl MarkdownTransformer for MarkdownToHtml {
         buffer
     }
 
+    fn transform_inc_list_level(&mut self, added: usize) -> String {
+        "<ul>".repeat(added / 2)
+    }
+
+    fn transform_dec_list_level(&mut self, added: usize) -> String {
+        "</ul>".repeat(added / 2)
+    }
+
     fn transform_list_element(&mut self, element: String) -> String {
         format!("<li>{}</li>", element)
     }
